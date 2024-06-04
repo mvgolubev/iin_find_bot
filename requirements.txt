@@ -1,0 +1,6 @@
+aiogram
+beautifulsoup4
+lxml
+opencv-python
+python-dotenv
+
