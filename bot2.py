@@ -1,6 +1,7 @@
 import asyncio
 import base64
 from datetime import date
+from os import getenv, path
 
 import aiohttp
 import cv2
@@ -10,15 +11,21 @@ from dotenv import load_dotenv
 from telebot import TeleBot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, ReactionTypeEmoji
 
-load_dotenv()
-bot = TeleBot(token=getenv("API_TOKEN"), parse_mode="HTML")
+from app import constants
 
+if path.isfile(".env"):
+    load_dotenv()
+    bot = TeleBot(token=getenv("API_TOKEN"), parse_mode="HTML")
+else:
+    print("Файл .env не найден!\n"
+          "1. Создайте файл с именем \".env\" рядом с файлом \"bot2.py\"\n"
+          "2. В файл \".env\" добавьте строку:\n"
+          "API_TOKEN = \"telegram_bot_token\"\n"
+          "где telegram_bot_token - это токен для вашего телеграм-бота, полученный от @BotFather")
 
 @bot.message_handler(commands=["start"])
 def start_handler(message):
-    text = ("🔎 <b>Поиск ИИН</b>\n\n"
-            "Отправьте текстом дату рождения\n(в формате ГГГГ-ММ-ДД)\n"
-            "Например: <i>1997-08-25</i>")
+    text = (f"🔎 <b>Поиск ИИН</b>\n\n{constants.DATE_REQUEST}")
     bot.send_message(message.chat.id, text=text)
     bot.register_next_step_handler(message, date_handler)
 
