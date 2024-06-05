@@ -6,7 +6,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.types import Message, ReactionTypeEmoji, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 
-from app import utils, constants
+from app import constants, utils
 
 
 class IinInfo(StatesGroup):
@@ -36,7 +36,7 @@ async def date_handler(message: Message, state: FSMContext) -> None:
         else:
             await message.react([ReactionTypeEmoji(emoji="✍")])
             await message.chat.do(action="typing")
-            iins_possible = utils.generate_iins(birth_date, 5001, 300)
+            iins_possible = utils.generate_iins(birth_date, start_suffix=5001, quantity=300)
             await message.chat.do(action="typing")
             iins_postkz = await utils.mass_upd_iins_postkz(iins_possible)
             await state.update_data(iins=iins_postkz)
@@ -78,8 +78,8 @@ async def name_handler(message: Message, state: FSMContext) -> None:
                 text += f"<b>ФИО:</b> {full_name}\n"
                 text += f"Добавлен в базу налоговой: {iin["kgd_date"]}\n\n"
             text += ("<i>(ткните в значение ИИН, чтобы скопировать его в буфер)</i>\n\n"
-                     'Для дополнительной информации нажмите <b>"Info"</b>\n'
-                     'Сказать спасибо можно по кнопке <b>"Donate"</b>\n')
+                     "Для дополнительной информации нажмите <b>\"Info\"</b>\n"
+                     "Сказать спасибо можно по кнопке <b>\"Donate\"</b>")
         await message.answer(text=text, reply_markup=inline_keyboard(0))
     else:
         await message.react([ReactionTypeEmoji(emoji="👎")])
@@ -122,7 +122,7 @@ async def callback_info(callback: CallbackQuery) -> None:
             f"(налоговая служба Казахстана).\n"
             f"Вы можете самостоятельно проверить свой ИИН в налоговой базе, например, на "
             f"<a href='{constants.FAFA_URL}'>этом сайте</a> или через <a href='{constants.POSTKZ_URL}'>сайт "
-            f"Казпочты</a> (там нужно ввести свой ИИН в поле 'ИИН/ЖСН' и, если автоматически отобразится ваше "
+            f"Казпочты</a> (там нужно ввести свой ИИН в поле \"ИИН/ЖСН\" и, если автоматически отобразится ваше "
             f"имя и первая буква фамилии, значит ИИН есть в налоговой базе).\n\n"
             f"Если после присвоения ИИН прошло более недели, а он так и не появился в налоговой базе, "
             f"значит вам нужно обратиться в налоговое управление КГД МФ РК, сообщить об этой проблеме "
