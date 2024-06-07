@@ -19,7 +19,7 @@ def generate_iins(birth_date: date, start_suffix: int, quantity: int) -> list[st
 def checksum(iin_11: str) -> int:
     check_nums = (
         (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11),
-        (3, 4, 5, 6, 7, 8, 9, 10, 11, 1, 2)
+        (3, 4, 5, 6, 7, 8, 9, 10, 11, 1, 2),
     )
     check_digit = sum([int(x) * y for (x, y) in zip(iin_11, check_nums[0])]) % 11
     if check_digit == 10:
@@ -46,10 +46,12 @@ async def update_iin_postkz(session: aiohttp.ClientSession, iin: str) -> dict:
         "Content-Type": "application/json;charset=UTF-8",
         "User-Agent": constants.USER_AGENT,
         "Origin": "https://post.kz",
-        "Referer": constants.POSTKZ_URL
+        "Referer": constants.POSTKZ_URL,
     }
     json = {"iinBin": iin}
-    async with session.post(url=constants.POSTKZ_API_URL, headers=headers, json=json) as response:
+    async with session.post(
+        url=constants.POSTKZ_API_URL, headers=headers, json=json
+    ) as response:
         if response.status == 202:
             response_json = await response.json()
             iin_data["name"] = response_json["fio"]
@@ -88,7 +90,9 @@ async def mass_upd_iins_nca(iins: list[dict]) -> list[dict]:
         for iin in iins:
             img_data, viewstate = await get_captcha(session, constants.NCA_URL)
             captcha_answer = captcha.resolve_captcha(img_data)
-            task = asyncio.create_task(update_iin_nca(session, iin, captcha_answer, viewstate))
+            task = asyncio.create_task(
+                update_iin_nca(session, iin, captcha_answer, viewstate)
+            )
             tasks.append(task)
         return await asyncio.gather(*tasks)
 
@@ -106,13 +110,15 @@ async def get_captcha(session: aiohttp.ClientSession, url: str) -> tuple[str, st
     return img_data, viewstate
 
 
-async def update_iin_nca(session: aiohttp.ClientSession, iin: dict, captcha_answer: str, viewstate: str) -> dict:
+async def update_iin_nca(
+    session: aiohttp.ClientSession, iin: dict, captcha_answer: str, viewstate: str
+) -> dict:
     headers = {
         "User-Agent": constants.USER_AGENT,
         "Accept": "application/xml, text/xml, */*; q=0.01",
         "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
         "Faces-Request": "partial/ajax",
-        "X-Requested-With": "XMLHttpRequest"
+        "X-Requested-With": "XMLHttpRequest",
     }
     data = {
         "javax.faces.partial.ajax": "true",
@@ -127,9 +133,11 @@ async def update_iin_nca(session: aiohttp.ClientSession, iin: dict, captcha_answ
         "userAgreementCheckHidden": "true",
         "certrequestStr": "",
         "keyidStr": "",
-        "javax.faces.ViewState": viewstate
+        "javax.faces.ViewState": viewstate,
     }
-    async with session.post(url=constants.NCA_URL, headers=headers, data=data) as response:
+    async with session.post(
+        url=constants.NCA_URL, headers=headers, data=data
+    ) as response:
         xml = await response.text()
     xml_soup = BeautifulSoup(xml, "xml")
     html = xml_soup.find("update", id="indexForm").string

@@ -1,7 +1,11 @@
-USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
-              "Chrome/125.0.0.0 Safari/537.36")
+USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/125.0.0.0 Safari/537.36"
+)
 POSTKZ_API_URL = "https://post.kz/mail-app/api/checkIinBin"
-GBDFL_URL = "https://www.nitec.kz/ru/proekty/gosudarstvennaya-baza-dannykh-fizicheskie-lica"
+GBDFL_URL = (
+    "https://www.nitec.kz/ru/proekty/gosudarstvennaya-baza-dannykh-fizicheskie-lica"
+)
 NCA_URL = "https://nca.pki.gov.kz/service/pkiorder/create.xhtml?lang=ru&certtemplateAlias=individ_ng"
 FAFA_URL = "https://fa-fa.kz/company_info/"
 POSTKZ_URL = "https://post.kz/register"

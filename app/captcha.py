@@ -46,7 +46,9 @@ def digits_positions(img_array: np.ndarray) -> dict:
     return digit_coordinates
 
 
-def match_digit(digit_templates: tuple[np.ndarray, np.ndarray], gray_img_array: np.ndarray) -> list[np.int64]:
+def match_digit(
+    digit_templates: tuple[np.ndarray, np.ndarray], gray_img_array: np.ndarray
+) -> list[np.int64]:
     # try_methods = [cv2.TM_SQDIFF_NORMED, cv2.TM_CCORR_NORMED, cv2.TM_CCOEFF_NORMED]
     method = cv2.TM_CCORR_NORMED
     threshhold = 0.99
