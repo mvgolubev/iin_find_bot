@@ -69,14 +69,14 @@ async def name_handler(message: Message, state: FSMContext) -> None:
                 text += "Ваш ИИН только один из них (который с вашими ФИО).\n"
             text += "\n"
             for iin in iins_matched_nca:
-                text += f"<b>ИИН:</b> <code>{iin["iin"]}</code>\n"
+                text += f"<b>ИИН:</b> <code>{iin['iin']}</code>\n"
                 if not iin["middle_name"]:
                     iin["middle_name"] = ""
                 if not iin["last_name"]:
                     iin["last_name"] = ""
-                full_name = f"{iin["last_name"]} {iin["first_name"]} {iin["middle_name"]}".strip().title()
+                full_name = f"{iin['last_name']} {iin['first_name']} {iin['middle_name']}".strip().title()
                 text += f"<b>ФИО:</b> {full_name}\n"
-                text += f"Добавлен в базу налоговой: {iin["kgd_date"]}\n\n"
+                text += f"Добавлен в базу налоговой: {iin['kgd_date']}\n\n"
             text += ("<i>(ткните в значение ИИН, чтобы скопировать его в буфер)</i>\n\n"
                      "Для дополнительной информации нажмите <b>\"Info\"</b>\n"
                      "Сказать спасибо можно по кнопке <b>\"Donate\"</b>")
