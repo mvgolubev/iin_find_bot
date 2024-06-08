@@ -1,12 +1,7 @@
 import asyncio
-import base64
 from datetime import date
 from os import getenv, path
 
-import aiohttp
-import cv2
-import numpy as np
-from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from telebot import TeleBot
 from telebot.types import (
