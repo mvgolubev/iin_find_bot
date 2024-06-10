@@ -76,6 +76,55 @@
     ```
 8. После этого можно переходить в **Telegram** и пробовать подключаться к своему боту.
 
+## 🐧 Deploy Bot on Linux Server (Ubuntu)
+
+1. Prepare Bot files:
+```bash
+mkdir /opt/bots
+cd /opt/bots
+git clone https://github.com/mvgolubev/iin_find_bot.git
+cd iin_find_bot
+echo API_TOKEN=1234567890:AbcDefGhiJklMnoPqrStuVwxYz > ".env"
+```
+2. Prepare Python Virtual Environment:
+```bash
+apt install python3-venv
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+deactivate
+```
+3. Create systemd service file:
+```bash
+cd /etc/systemd/system
+nano iin_find_bot.service
+```
+4. Save config to file:
+```bash
+[Unit]
+Description=Python bot for IIN search
+After=multi-user.target
+
+[Service]
+WorkingDirectory=/opt/bots/iin_find_bot
+ExecStart=/opt/bots/iin_find_bot/.venv/bin/python bot.py
+
+Restart=always
+RestartSec=60
+
+[Install]
+WantedBy=multi-user.target
+```
+**Ctrl-O, Enter**  
+**Ctrl-X**
+
+5. Enable Service autostart & Start Service
+```bash
+systemctl daemon-reload
+systemctl enable iin_find_bot.service
+systemctl start iin_find_bot.service
+systemctl status iin_find_bot.service
+```
 
 ## ❓ FAQ
 
