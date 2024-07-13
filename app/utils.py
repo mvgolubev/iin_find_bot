@@ -14,7 +14,7 @@ def generate_iins(
     for suffix in range(1, quantity):
         iin_11 = f"{birth_date:%y%m%d}0{digit_8th}{str(suffix).zfill(3)}"
         if checksum(iin_11) < 10:
-            iins_possible.append(iin_11 + str(checksum(iin_11)))
+            iins_possible.append(f"{iin_11}{checksum(iin_11)}")
     return iins_possible
 
 
