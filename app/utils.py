@@ -40,7 +40,7 @@ async def update_iin_postkz(session: aiohttp.ClientSession, iin: str) -> dict:
     iin_data = {
         "iin": iin,
         "name": None,
-        "kgd_date": "(нет)",
+        "kgd_date": None,
     }
     headers = {
         "Content-Type": "application/json;charset=UTF-8",
@@ -78,7 +78,7 @@ def empty_name_postkz(iins_postkz: list[dict]) -> list[dict]:
             empty_iin = {
                 "iin": iins_postkz[i]["iin"],
                 "name": None,
-                "kgd_date": "(нет)",
+                "kgd_date": None,
             }
             iins_empty_postkz.append(empty_iin)
     return iins_empty_postkz
