@@ -1,7 +1,0 @@
-aiohttp
-beautifulsoup4
-lxml
-opencv-python-headless
-pyTelegramBotAPI
-python-dotenv
-
