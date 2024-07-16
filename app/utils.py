@@ -7,10 +7,10 @@ from bs4 import BeautifulSoup
 from app import constants, captcha
 
 
-def generate_iins(birth_date: date, start_suffix: int, quantity: int) -> list[str]:
+def generate_iins(birth_date: date, digit_8th: int, quantity: int) -> list[str]:
     iins_possible = []
-    for suffix in range(start_suffix, start_suffix + quantity):
-        iin_11 = birth_date.strftime("%y%m%d") + "0" + str(suffix)
+    for suffix in range(1, quantity):
+        iin_11 = f"{birth_date:%y%m%d}0{digit_8th}{str(suffix).zfill(3)}"
         if checksum(iin_11) < 10:
             iins_possible.append(iin_11 + str(checksum(iin_11)))
     return iins_possible
@@ -27,13 +27,14 @@ def checksum(iin_11: str) -> int:
     return check_digit
 
 
-async def mass_upd_iins_postkz(iins: list[str]) -> list[dict]:
-    async with aiohttp.ClientSession() as session:
-        tasks = []
-        for iin in iins:
-            task = asyncio.create_task(update_iin_postkz(session, iin))
-            tasks.append(task)
-        return await asyncio.gather(*tasks)
+async def mass_upd_iins_postkz(
+    session: aiohttp.ClientSession, iins: list[str]
+) -> list[dict]:
+    tasks = []
+    for iin in iins:
+        task = asyncio.create_task(update_iin_postkz(session, iin))
+        tasks.append(task)
+    return await asyncio.gather(*tasks)
 
 
 async def update_iin_postkz(session: aiohttp.ClientSession, iin: str) -> dict:
@@ -84,17 +85,18 @@ def empty_name_postkz(iins_postkz: list[dict]) -> list[dict]:
     return iins_empty_postkz
 
 
-async def mass_upd_iins_nca(iins: list[dict]) -> list[dict]:
-    async with aiohttp.ClientSession() as session:
-        tasks = []
-        for iin in iins:
-            img_data, viewstate = await get_captcha(session, constants.NCA_URL)
-            captcha_answer = captcha.resolve_captcha(img_data)
-            task = asyncio.create_task(
-                update_iin_nca(session, iin, captcha_answer, viewstate)
-            )
-            tasks.append(task)
-        return await asyncio.gather(*tasks)
+async def mass_upd_iins_nca(
+    session: aiohttp.ClientSession, iins: list[dict]
+) -> list[dict]:
+    tasks = []
+    for iin in iins:
+        img_data, viewstate = await get_captcha(session, constants.NCA_URL)
+        captcha_answer = captcha.resolve_captcha(img_data)
+        task = asyncio.create_task(
+            update_iin_nca(session, iin, captcha_answer, viewstate)
+        )
+        tasks.append(task)
+    return await asyncio.gather(*tasks)
 
 
 async def get_captcha(session: aiohttp.ClientSession, url: str) -> tuple[str, str]:
@@ -164,3 +166,18 @@ def match_name_nca(input_name: str, nca_updated_iins: list[dict]) -> list[dict]:
             if iin_name == input_name:
                 iins_matched_nca.append(iin)
     return iins_matched_nca
+
+
+async def find_iin(birth_date: date, name: str) -> list[dict]:
+    iins_found = []
+    async with aiohttp.ClientSession() as session:
+        for digit_8th in (0, 5):
+            iins_possible = generate_iins(birth_date, digit_8th=digit_8th, quantity=300)
+            iins_postkz = await mass_upd_iins_postkz(session, iins_possible)
+            iins_matched_postkz = match_name_postkz(name, iins_postkz)
+            iins_empty_postkz = empty_name_postkz(iins_postkz)
+            iins_possible_postkz = iins_matched_postkz + iins_empty_postkz
+            iins_nca = await mass_upd_iins_nca(session, iins_possible_postkz)
+            iins_matched_nca = match_name_nca(name, iins_nca)
+            iins_found.extend(iins_matched_nca)
+    return iins_found

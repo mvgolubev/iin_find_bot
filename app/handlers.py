@@ -44,12 +44,7 @@ async def date_handler(message: Message, state: FSMContext) -> None:
         else:
             await message.react([ReactionTypeEmoji(emoji="✍")])
             await message.chat.do(action="typing")
-            iins_possible = utils.generate_iins(
-                birth_date, start_suffix=5001, quantity=300
-            )
-            await message.chat.do(action="typing")
-            iins_postkz = await utils.mass_upd_iins_postkz(iins_possible)
-            await state.update_data(iins=iins_postkz)
+            await state.update_data(birth_date=birth_date)
             await message.answer(
                 text="Отправьте имя и первую букву фамилии.\nНапример: <i>Александр Б</i>"
             )
@@ -66,25 +61,27 @@ async def name_handler(message: Message, state: FSMContext) -> None:
     if message.content_type == "text":
         await message.react([ReactionTypeEmoji(emoji="✍")])
         await message.chat.do(action="typing")
-        input_name = message.text.strip(" .").casefold()
-        iins_postkz = (await state.get_data())["iins"]
-        iins_matched_postkz = utils.match_name_postkz(input_name, iins_postkz)
-        iins_empty_postkz = utils.empty_name_postkz(iins_postkz)
-        iins_possible_postkz = iins_matched_postkz + iins_empty_postkz
-        iins_nca = await utils.mass_upd_iins_nca(iins_possible_postkz)
-        iins_matched_nca = utils.match_name_nca(input_name, iins_nca)
-        if len(iins_matched_nca) == 0:
+        name = message.text.strip(" .").casefold()
+        await state.update_data(name=name)
+        data = await state.get_data()
+        await message.answer(text="🤖🔎 Начал искать. Ждите...")
+        await message.chat.do(action="typing")
+        iins_found = await utils.find_iin(
+            birth_date=data["birth_date"], name=data["name"]
+        )
+
+        if len(iins_found) == 0:
             text = (
                 "❌ <b>Подходящий ИИН не найден!</b>\n\n"
                 "Убедитесь, что вы верно ввели данные для поиска. "
                 "Если данные указаны верно, тогда повторите поиск позже."
             )
         else:
-            text = f"✅ <b>Найдено: {len(iins_matched_nca)} ИИН</b>\n"
-            if len(iins_matched_nca) > 1:
+            text = f"✅ <b>Найдено: {len(iins_found)} ИИН</b>\n"
+            if len(iins_found) > 1:
                 text += "Ваш ИИН только один из них (который с вашими ФИО).\n"
             text += "\n"
-            for iin in iins_matched_nca:
+            for iin in iins_found:
                 text += f"<b>ИИН:</b> <code>{iin['iin']}</code>\n"
                 if not iin["middle_name"]:
                     iin["middle_name"] = ""
@@ -158,7 +155,7 @@ async def callback_info(callback: CallbackQuery) -> None:
         f"имя и первая буква фамилии, значит ИИН есть в налоговой базе).\n\n"
         f"Если после присвоения ИИН прошло более недели, а ИИН так и не появился в налоговой базе, "
         f"значит автоматическая синхронизация ИИН в налоговую базу по каким-то причинам не произошла "
-        f"(такое иногда случается). В этом случае, чтобы ИИН всё же появился в налоговой базе, "        
+        f"(такое иногда случается). В этом случае, чтобы ИИН всё же появился в налоговой базе, "
         f"вам нужно обратиться в налоговое управление КГД МФ РК, сообщить об этой проблеме "
         f"и попросить обновить ваш ИИН в налоговой базе."
     )
