@@ -7,17 +7,16 @@ from aiogram.fsm.state import StatesGroup, State
 from aiogram.types import (
     Message,
     ReactionTypeEmoji,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
     CallbackQuery,
 )
 
-from app import constants, utils
+from app import constants, utils, keyboards as kb
 
 
 class IinInfo(StatesGroup):
     birth_date = State()
     name = State()
+    search_old = State()
 
 
 router = Router()
@@ -64,18 +63,21 @@ async def name_handler(message: Message, state: FSMContext) -> None:
         name = message.text.strip(" .").casefold()
         await state.update_data(name=name)
         data = await state.get_data()
-        await message.answer(text="🤖🔎 Начал искать. Ждите...")
+        text = (
+            "🤖🔎 Начал искать ИИН. Ждите...\n\n"
+            f"* Дата рождения: {data['birth_date']}\n"
+            f"* Имя: {str.title(data['name'])}\n"
+            f"* ИИН: {data['birth_date']:%y%m%d}05xxxx"
+        )
+        await message.answer(text=text)
         await message.chat.do(action="typing")
         iins_found = await utils.find_iin(
-            birth_date=data["birth_date"], name=data["name"]
+            birth_date=data["birth_date"], name=data["name"], digit_8th=5
         )
-
         if len(iins_found) == 0:
-            text = (
-                "❌ <b>Подходящий ИИН не найден!</b>\n\n"
-                "Убедитесь, что вы верно ввели данные для поиска. "
-                "Если данные указаны верно, тогда повторите поиск позже."
-            )
+            text = f"{constants.NOT_FOUND_TEXT}{constants.SEARCH_OLD_TEXT}"
+            await message.answer(text=text, reply_markup=kb.not_found_new())
+            await state.set_state(IinInfo.search_old)
         else:
             text = f"✅ <b>Найдено: {len(iins_found)} ИИН</b>\n"
             if len(iins_found) > 1:
@@ -83,6 +85,8 @@ async def name_handler(message: Message, state: FSMContext) -> None:
             text += "\n"
             for iin in iins_found:
                 text += f"<b>ИИН:</b> <code>{iin['iin']}</code>\n"
+                if not iin["first_name"]:
+                    iin["first_name"] = ""
                 if not iin["middle_name"]:
                     iin["middle_name"] = ""
                 if not iin["last_name"]:
@@ -96,9 +100,12 @@ async def name_handler(message: Message, state: FSMContext) -> None:
                     text += '(нет) - см. "Info"\n\n'
             text += (
                 "<i>(ткните в значение ИИН, чтобы скопировать его в буфер)</i>\n\n"
-                'Сказать спасибо можно по кнопке <b>"Donate"</b>'
+                'Сказать спасибо можно по кнопке <b>"Donate"</b>\n\n'
+                "🤷‍♂️ <b>Среди найденных ИИН нет вашего?</b>\n"
+                f"{constants.SEARCH_OLD_TEXT}"
             )
-        await message.answer(text=text, reply_markup=inline_keyboard(0))
+            await message.answer(text=text, reply_markup=kb.found_new())
+            await state.set_state(IinInfo.search_old)
     else:
         await message.react([ReactionTypeEmoji(emoji="👎")])
         await message.reply(
@@ -112,31 +119,58 @@ async def default_handler(message: Message) -> None:
     await message.answer(text="Чтобы начать, отправьте: /start")
 
 
-def inline_keyboard(num: int) -> InlineKeyboardMarkup:
-    info_button = InlineKeyboardButton(text="ℹ️ Info", callback_data="cb_info")
-    donate_button = InlineKeyboardButton(text="💳 Donate", callback_data="cb_donate")
-    search_button = InlineKeyboardButton(
-        text="🔎 Новый поиск ИИН", callback_data="cb_search"
-    )
-    if num == 0:
-        markup = InlineKeyboardMarkup(
-            inline_keyboard=[[info_button, donate_button], [search_button]]
-        )
-    elif num == 1:
-        markup = InlineKeyboardMarkup(inline_keyboard=[[donate_button, search_button]])
-    elif num == 2:
-        markup = InlineKeyboardMarkup(inline_keyboard=[[info_button, search_button]])
-    return markup
-
-
-@router.callback_query(F.data == "cb_search")
-async def callback_search(callback: CallbackQuery, state: FSMContext) -> None:
-    await start_handler(callback.message, state)
+@router.callback_query(F.data == "cb_new_search")
+async def callback_new_search(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer(text="")
+    await start_handler(callback.message, state)
+
+
+@router.callback_query(F.data == "cb_old_search", IinInfo.search_old)
+async def callback_old_search(callback: CallbackQuery, state: FSMContext) -> None:
+    await callback.answer(text="")
+    data = await state.get_data()
+    text = (
+        "🤖🔎 Дополнительно ищу среди более старых ИИН. Ждите...\n\n"
+        f"* Дата рождения: {data['birth_date']}\n"
+        f"* Имя: {str.title(data['name'])}\n"
+        f"* ИИН: {data['birth_date']:%y%m%d}00xxxx"
+    )
+    await callback.message.answer(text=text)
+    await callback.message.chat.do(action="typing")
+    iins_found = await utils.find_iin(
+        birth_date=data["birth_date"], name=data["name"], digit_8th=0
+    )
+    if len(iins_found) == 0:
+        text = f"{constants.NOT_FOUND_TEXT}"
+        await callback.message.answer(text=text, reply_markup=kb.not_found_old())
+    else:
+        text = f"✅ <b>Найдено: {len(iins_found)} ИИН</b>\n"
+        if len(iins_found) > 1:
+            text += "Ваш ИИН только один из них (который с вашими ФИО).\n"
+        text += "\n"
+        for iin in iins_found:
+            text += f"<b>ИИН:</b> <code>{iin['iin']}</code>\n"
+            if not iin["middle_name"]:
+                iin["middle_name"] = ""
+            if not iin["last_name"]:
+                iin["last_name"] = ""
+            full_name = f"{iin['last_name']} {iin['first_name']} {iin['middle_name']}".strip().title()
+            text += f"<b>ФИО:</b> {full_name}\n"
+            text += "Добавлен в базу налоговой: "
+            if iin["kgd_date"]:
+                text += f"{iin['kgd_date']}\n\n"
+            else:
+                text += '(нет) - см. "Info"\n\n'
+        text += (
+            "<i>(ткните в значение ИИН, чтобы скопировать его в буфер)</i>\n\n"
+            'Сказать спасибо можно по кнопке <b>"Donate"</b>'
+        )
+        await callback.message.answer(text=text, reply_markup=kb.found_old())
 
 
 @router.callback_query(F.data == "cb_info")
 async def callback_info(callback: CallbackQuery) -> None:
+    await callback.answer(text="")
     text = (
         f"ℹ️ <b>Info</b>\n\n"
         f"Для открытия карт/счетов в банках Kaspi и Freedom Bank достаточно, чтобы ИИН просто "
@@ -160,13 +194,13 @@ async def callback_info(callback: CallbackQuery) -> None:
         f"и попросить обновить ваш ИИН в налоговой базе."
     )
     await callback.message.answer(
-        text=text, disable_web_page_preview=True, reply_markup=inline_keyboard(1)
+        text=text, disable_web_page_preview=True, reply_markup=kb.info()
     )
-    await callback.answer(text="")
 
 
 @router.callback_query(F.data == "cb_donate")
 async def callback_donate(callback: CallbackQuery) -> None:
+    await callback.answer(text="")
     text = (
         "💳 <b>Donate</b>\n\n"
         "Данный бот - это некоммерческий проект.\n"
@@ -174,6 +208,5 @@ async def callback_donate(callback: CallbackQuery) -> None:
         f"<a href='{constants.DONATE_URL}'>пожертвованием</a>"
     )
     await callback.message.answer(
-        text=text, disable_web_page_preview=True, reply_markup=inline_keyboard(2)
+        text=text, disable_web_page_preview=True, reply_markup=kb.donate()
     )
-    await callback.answer(text="")

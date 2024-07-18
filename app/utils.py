@@ -7,7 +7,9 @@ from bs4 import BeautifulSoup
 from app import constants, captcha
 
 
-def generate_iins(birth_date: date, digit_8th: int, quantity: int) -> list[str]:
+def generate_iins(
+    birth_date: date, digit_8th: int = 5, quantity: int = 300
+) -> list[str]:
     iins_possible = []
     for suffix in range(1, quantity):
         iin_11 = f"{birth_date:%y%m%d}0{digit_8th}{str(suffix).zfill(3)}"
@@ -72,7 +74,9 @@ def empty_name_postkz(iins_postkz: list[dict]) -> list[dict]:
     names_list = [iin["name"] for iin in iins_postkz]
     last_name_value = [name for name in names_list if name][-1]
     names_list.reverse()
-    last_est_index = len(iins_postkz) - names_list.index(last_name_value) + 4
+    last_est_index = min(
+        len(iins_postkz), len(iins_postkz) - names_list.index(last_name_value) + 4
+    )
     iins_empty_postkz = []
     for i in range(last_est_index):
         if not iins_postkz[i]["name"]:
@@ -157,27 +161,28 @@ async def update_iin_nca(
 def match_name_nca(input_name: str, nca_updated_iins: list[dict]) -> list[dict]:
     iins_matched_nca = []
     for iin in nca_updated_iins:
+        iin_name = ""
+        # ИИН 991223050176 - has first name only (КАДЖАЛ)
+        # ИИН 000101051361 - has last name only (САЖВАЛ)
         if iin["first_name"]:
-            # из-за существования людей без фамилии типа ИИН 991223050176 (КАДЖАЛ)
-            if iin["last_name"]:
+            if iin["last_name"]:  # has first_name AND last_name
                 iin_name = (iin["first_name"] + " " + iin["last_name"][0]).casefold()
-            else:
+            else:  # has first_name only
                 iin_name = iin["first_name"].casefold()
-            if iin_name == input_name:
-                iins_matched_nca.append(iin)
+        elif iin["last_name"]:  # has last_name only
+            iin_name = iin["last_name"].casefold()
+        if iin_name == input_name:
+            iins_matched_nca.append(iin)
     return iins_matched_nca
 
 
-async def find_iin(birth_date: date, name: str) -> list[dict]:
-    iins_found = []
+async def find_iin(birth_date: date, name: str, digit_8th: int = 5) -> list[dict]:
     async with aiohttp.ClientSession() as session:
-        for digit_8th in (0, 5):
-            iins_possible = generate_iins(birth_date, digit_8th=digit_8th, quantity=300)
-            iins_postkz = await mass_upd_iins_postkz(session, iins_possible)
-            iins_matched_postkz = match_name_postkz(name, iins_postkz)
-            iins_empty_postkz = empty_name_postkz(iins_postkz)
-            iins_possible_postkz = iins_matched_postkz + iins_empty_postkz
-            iins_nca = await mass_upd_iins_nca(session, iins_possible_postkz)
-            iins_matched_nca = match_name_nca(name, iins_nca)
-            iins_found.extend(iins_matched_nca)
-    return iins_found
+        iins_possible = generate_iins(birth_date, digit_8th=digit_8th, quantity=300)
+        iins_postkz = await mass_upd_iins_postkz(session, iins_possible)
+        iins_matched_postkz = match_name_postkz(name, iins_postkz)
+        iins_empty_postkz = empty_name_postkz(iins_postkz)
+        iins_possible_postkz = iins_matched_postkz + iins_empty_postkz
+        iins_nca = await mass_upd_iins_nca(session, iins_possible_postkz)
+        iins_matched_nca = match_name_nca(name, iins_nca)
+    return iins_matched_nca
