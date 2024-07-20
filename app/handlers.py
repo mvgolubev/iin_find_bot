@@ -16,7 +16,7 @@ from app import constants, utils, keyboards as kb
 class IinInfo(StatesGroup):
     birth_date = State()
     name = State()
-    search_old = State()
+    standard_search_complete = State()
 
 
 router = Router()
@@ -75,9 +75,9 @@ async def name_handler(message: Message, state: FSMContext) -> None:
             birth_date=data["birth_date"], name=data["name"], digit_8th=5
         )
         if len(iins_found) == 0:
-            text = f"{constants.NOT_FOUND_TEXT}{constants.SEARCH_OLD_TEXT}"
-            await message.answer(text=text, reply_markup=kb.not_found_new())
-            await state.set_state(IinInfo.search_old)
+            text = f"{constants.NOT_FOUND_TEXT}{constants.DEEP_SEARCH_TEXT}"
+            await message.answer(text=text, reply_markup=kb.not_found_standard())
+            await state.set_state(IinInfo.standard_search_complete)
         else:
             text = f"✅ <b>Найдено: {len(iins_found)} ИИН</b>\n"
             if len(iins_found) > 1:
@@ -102,10 +102,10 @@ async def name_handler(message: Message, state: FSMContext) -> None:
                 "<i>(ткните в значение ИИН, чтобы скопировать его в буфер)</i>\n\n"
                 'Сказать спасибо можно по кнопке <b>"Donate"</b>\n\n'
                 "🤷‍♂️ <b>Среди найденных ИИН нет вашего?</b>\n"
-                f"{constants.SEARCH_OLD_TEXT}"
+                f"{constants.DEEP_SEARCH_TEXT}"
             )
-            await message.answer(text=text, reply_markup=kb.found_new())
-            await state.set_state(IinInfo.search_old)
+            await message.answer(text=text, reply_markup=kb.found_standard())
+            await state.set_state(IinInfo.standard_search_complete)
     else:
         await message.react([ReactionTypeEmoji(emoji="👎")])
         await message.reply(
@@ -119,14 +119,14 @@ async def default_handler(message: Message) -> None:
     await message.answer(text="Чтобы начать, отправьте: /start")
 
 
-@router.callback_query(F.data == "cb_new_search")
-async def callback_new_search(callback: CallbackQuery, state: FSMContext) -> None:
+@router.callback_query(F.data == "cb_standard_search")
+async def callback_standard_search(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer(text="")
     await start_handler(callback.message, state)
 
 
-@router.callback_query(F.data == "cb_old_search", IinInfo.search_old)
-async def callback_old_search(callback: CallbackQuery, state: FSMContext) -> None:
+@router.callback_query(F.data == "cb_deep_search", IinInfo.standard_search_complete)
+async def callback_deep_search(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer(text="")
     data = await state.get_data()
     text = (
@@ -142,7 +142,7 @@ async def callback_old_search(callback: CallbackQuery, state: FSMContext) -> Non
     )
     if len(iins_found) == 0:
         text = f"{constants.NOT_FOUND_TEXT}"
-        await callback.message.answer(text=text, reply_markup=kb.not_found_old())
+        await callback.message.answer(text=text, reply_markup=kb.not_found_deep())
     else:
         text = f"✅ <b>Найдено: {len(iins_found)} ИИН</b>\n"
         if len(iins_found) > 1:
@@ -165,7 +165,7 @@ async def callback_old_search(callback: CallbackQuery, state: FSMContext) -> Non
             "<i>(ткните в значение ИИН, чтобы скопировать его в буфер)</i>\n\n"
             'Сказать спасибо можно по кнопке <b>"Donate"</b>'
         )
-        await callback.message.answer(text=text, reply_markup=kb.found_old())
+        await callback.message.answer(text=text, reply_markup=kb.found_deep())
 
 
 @router.callback_query(F.data == "cb_info")
