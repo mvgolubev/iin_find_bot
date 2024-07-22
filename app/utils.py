@@ -72,11 +72,14 @@ def match_name_postkz(input_name: str, iins_postkz: list[dict]) -> list[dict]:
 
 def empty_name_postkz(iins_postkz: list[dict]) -> list[dict]:
     names_list = [iin["name"] for iin in iins_postkz]
-    last_name_value = [name for name in names_list if name][-1]
-    names_list.reverse()
-    last_est_index = min(
-        len(iins_postkz), len(iins_postkz) - names_list.index(last_name_value) + 4
-    )
+    if names_list.count(None) == len(names_list):
+        last_est_index = 4
+    else:     
+        last_name_value = [name for name in names_list if name][-1]
+        names_list.reverse()
+        last_est_index = min(
+            len(iins_postkz), len(iins_postkz) - names_list.index(last_name_value) + 4
+        )
     iins_empty_postkz = []
     for i in range(last_est_index):
         if not iins_postkz[i]["name"]:
