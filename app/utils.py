@@ -176,6 +176,13 @@ def match_name_nca(input_name: str, nca_updated_iins: list[dict]) -> list[dict]:
     return iins_matched_nca
 
 
+def get_full_name(iin_data: dict) -> str:
+    first = iin_data["first_name"] if iin_data["first_name"] else ""
+    middle = iin_data["middle_name"] if iin_data["middle_name"] else ""
+    last = iin_data["last_name"] if iin_data["last_name"] else ""
+    return f"{last} {first} {middle}".strip().title()
+
+
 async def find_iin(birth_date: date, name: str, digit_8th: int = 5) -> list[dict]:
     async with aiohttp.ClientSession() as session:
         iins_possible = generate_iins(birth_date, digit_8th=digit_8th, quantity=300)
