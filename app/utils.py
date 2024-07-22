@@ -72,11 +72,14 @@ def match_name_postkz(input_name: str, iins_postkz: list[dict]) -> list[dict]:
 
 def empty_name_postkz(iins_postkz: list[dict]) -> list[dict]:
     names_list = [iin["name"] for iin in iins_postkz]
-    last_name_value = [name for name in names_list if name][-1]
-    names_list.reverse()
-    last_est_index = min(
-        len(iins_postkz), len(iins_postkz) - names_list.index(last_name_value) + 4
-    )
+    if names_list.count(None) == len(names_list):
+        last_est_index = 4
+    else:     
+        last_name_value = [name for name in names_list if name][-1]
+        names_list.reverse()
+        last_est_index = min(
+            len(iins_postkz), len(iins_postkz) - names_list.index(last_name_value) + 4
+        )
     iins_empty_postkz = []
     for i in range(last_est_index):
         if not iins_postkz[i]["name"]:
@@ -187,8 +190,14 @@ async def find_iin(birth_date: date, name: str, digit_8th: int = 5) -> list[dict
     async with aiohttp.ClientSession() as session:
         iins_possible = generate_iins(birth_date, digit_8th=digit_8th, quantity=300)
         iins_postkz = await mass_upd_iins_postkz(session, iins_possible)
+        print(iins_postkz)
+        print("-----")
         iins_matched_postkz = match_name_postkz(name, iins_postkz)
+        print(iins_matched_postkz)
+        print("-----")
         iins_empty_postkz = empty_name_postkz(iins_postkz)
+        print(iins_empty_postkz)
+        print("-----")
         iins_possible_postkz = iins_matched_postkz + iins_empty_postkz
         iins_nca = await mass_upd_iins_nca(session, iins_possible_postkz)
         iins_matched_nca = match_name_nca(name, iins_nca)

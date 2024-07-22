@@ -65,9 +65,19 @@ def print_iin(found_quantity: int) -> InlineKeyboardMarkup:
         )
 
 
-def pdf_choose_iin(found_quantity: int) -> ReplyKeyboardMarkup:
-    keyboard_line = [KeyboardButton(text=str(n+1)) for n in range(found_quantity)]
+def choose_iin(found_quantity: int) -> ReplyKeyboardMarkup:
+    keyboard_line = [KeyboardButton(text=str(n + 1)) for n in range(found_quantity)]
     return ReplyKeyboardMarkup(
-        keyboard=[keyboard_line], resize_keyboard=True, one_time_keyboard=True
+        keyboard=[keyboard_line],
+        resize_keyboard=True,
+        one_time_keyboard=True,
+        is_persistent=True,
     )
 
+
+def country() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="Россия")]],
+        resize_keyboard=True,
+        one_time_keyboard=True,
+    )
