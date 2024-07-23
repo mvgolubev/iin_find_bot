@@ -72,35 +72,37 @@ async def name_handler(message: Message, state: FSMContext) -> None:
         await state.update_data(name=name)
         data = await state.get_data()
         text = (
-            "🤖🔎 Начал искать ИИН. Ждите...\n\n"
-            f"* Дата рождения: {data['birth_date']}\n"
-            f"* Имя: {str.title(data['name'])}\n"
-            f"* ИИН: {data['birth_date']:%y%m%d}05xxxx"
+            "🤖🔎 Начал поиск ИИН со следующими параметрами:\n"
+            f"<b>◦ ИИН:</b> {data['birth_date']:%y%m%d}05xxxx\n"
+            f"<b>◦ Имя:</b> {str.title(data['name'])}\n"
+            f"<b>◦ Дата рождения:</b> {data['birth_date']}\n"
+            "Ждите завершения поиска... ⏱️"
         )
         await message.answer(text=text)
         await message.chat.do(action="typing")
-        iins_found = await utils.find_iin(
-            birth_date=data["birth_date"], name=data["name"], digit_8th=5
-        )
-        # iins_found = [
+        # iins_found = await utils.find_iin(
+        #     birth_date=data["birth_date"], name=data["name"], digit_8th=5
+        # )
+        iins_found = [
+            {
+                "iin": "830101050359",
+                "name": "Александр С",
+                "kgd_date": "2022-10-11",
+                "last_name": "СОКОЛОВ",
+                "first_name": "АЛЕКСАНДР",
+                "middle_name": "НИКОЛАЕВИЧ",
+            },
+        ]
         #     {
-        #         "iin": "830118050359",
-        #         "name": "Александр С",
-        #         "kgd_date": "2022-10-11",
-        #         "last_name": "СТЕБЛИНА",
-        #         "first_name": "АЛЕКСАНДР",
-        #         "middle_name": "БОРИСОВИЧ",
-        #     },
-        #     {
-        #         "iin": "830118050438",
+        #         "iin": "830101050438",
         #         "name": "Александр С",
         #         "kgd_date": None,
-        #         "last_name": "СИНГЕР",
+        #         "last_name": "СТЕПАНОВ",
         #         "first_name": "АЛЕКСАНДР",
         #         "middle_name": "АЛЕКСАНДРОВИЧ",
         #     },
         #     {
-        #         "iin": "830118051234",
+        #         "iin": "830101051234",
         #         "name": "Александр С",
         #         "kgd_date": "2023-04-12",
         #         "last_name": "СИДОРОВ",
@@ -132,7 +134,7 @@ async def name_handler(message: Message, state: FSMContext) -> None:
                 "🤷‍♂️ <b>Среди найденных ИИН нет вашего?</b>\n"
                 f"{constants.DEEP_SEARCH_TEXT}"
             )
-        await message.answer(text=text, reply_markup=kb.standard_search_result())
+        await message.answer(text=text, reply_markup=kb.standard_search_result)
     else:
         await message.react([ReactionTypeEmoji(emoji="👎")])
         await message.reply(
@@ -154,10 +156,11 @@ async def callback_deep_search(callback: CallbackQuery, state: FSMContext) -> No
         await default_handler(callback.message)
     else:
         text = (
-            "🤖🔎 Дополнительно ищу среди более старых ИИН. Ждите...\n\n"
-            f"* Дата рождения: {data['birth_date']}\n"
-            f"* Имя: {str.title(data['name'])}\n"
-            f"* ИИН: {data['birth_date']:%y%m%d}00xxxx"
+            "🤖🔎 Дополнительно ищу (среди более старых ИИН):\n"
+            f"<b>◦ ИИН:</b> {data['birth_date']:%y%m%d}00xxxx\n"
+            f"<b>◦ Имя:</b> {str.title(data['name'])}\n"
+            f"<b>◦ Дата рождения</b>: {data['birth_date']}\n"
+            "Ждите завершения поиска... ⏱️"
         )
         await callback.message.answer(text=text)
         await callback.message.chat.do(action="typing")
@@ -185,7 +188,7 @@ async def callback_deep_search(callback: CallbackQuery, state: FSMContext) -> No
                 "<i>(ткните в значение ИИН, чтобы скопировать его в буфер)</i>\n\n"
                 'Сказать спасибо можно по кнопке <b>"Donate"</b>'
             )
-        await callback.message.answer(text=text, reply_markup=kb.deep_search_result())
+        await callback.message.answer(text=text, reply_markup=kb.deep_search_result)
 
 
 @router.callback_query(F.data == "cb_info")
@@ -214,7 +217,7 @@ async def callback_info(callback: CallbackQuery) -> None:
         f"и попросить обновить ваш ИИН в налоговой базе."
     )
     await callback.message.answer(
-        text=text, disable_web_page_preview=True, reply_markup=kb.info()
+        text=text, disable_web_page_preview=True, reply_markup=kb.info
     )
 
 
@@ -228,7 +231,7 @@ async def callback_donate(callback: CallbackQuery) -> None:
         f"<a href='{constants.DONATE_URL}'>пожертвованием</a>"
     )
     await callback.message.answer(
-        text=text, disable_web_page_preview=True, reply_markup=kb.donate()
+        text=text, disable_web_page_preview=True, reply_markup=kb.donate
     )
 
 
@@ -295,74 +298,75 @@ async def callback_pdf_start(callback: CallbackQuery, state: FSMContext) -> None
     elif len(data["iins_found"]) == 1:
         await state.update_data(index=0)
         await state.set_state(IinInfo.country_request)
+        await country_request(callback, state)
     elif len(data["iins_found"]) > 1:
         text = "<b>Какой из найденных ИИН ваш?</b>\n\n"
         for n, iin in enumerate(data["iins_found"], start=1):
             text += f"{n}:\n"
-            text += f"ИИН: {iin['iin']}\n"
-            text += f"ФИО: {utils.get_full_name(iin)}\n\n"
-        text += "Отправьте текстом число (порядковый номер вашего ИИН)"
+            text += f"<b>ИИН:</b> {iin['iin']}\n"
+            text += f"<b>ФИО:</b> {utils.get_full_name(iin)}\n\n"
         await callback.message.answer(
             text=text, reply_markup=kb.choose_iin(len(data["iins_found"]))
         )
         await state.set_state(IinInfo.choose_iin)
 
 
-@router.message(IinInfo.choose_iin)
-async def choose_iin_handler(message: Message, state: FSMContext) -> None:
+@router.callback_query(IinInfo.choose_iin)
+async def callback_choose_iin(callback: CallbackQuery, state: FSMContext) -> None:
+    await callback.answer(text="")
+    await state.update_data(index=int(callback.data))
+    await state.set_state(IinInfo.country_request)
+    await country_request(callback, state)
+
+
+@router.callback_query(IinInfo.country_request)
+async def country_request(callback: CallbackQuery, state: FSMContext) -> None:
+    # await callback.answer(text="")
     data = await state.get_data()
-    error_text = (
-        "⚠️ Некорректное значение\n"
-        "Отправьте текстом число (порядковый номер вашего ИИН)"
+    iin = data["iins_found"][data["index"]]
+    text = (
+        f"<b>◦ ИИН:</b> {iin["iin"]}\n"
+        f"<b>◦ ФИО:</b> {utils.get_full_name(iin)}\n\n"
+        "Укажите страну рождения по-русски в соответствии с загран. "
+        "паспортом, на который оформлялся ИИН.\n"
+        'Если в паспорте указано "USSR", тогда укажите современное '
+        "название соответствующей страны.\n"
+        "Например: <i>Россия</i> или <i>Украина</i> или <i>Молдова</i> "
+        "или <i>Грузия</i> или <i>Латвия</i>"
     )
-    try:
-        chosen_iin_index = int(message.text) - 1
-    except (ValueError, TypeError):
-        await message.react([ReactionTypeEmoji(emoji="👎")])
-        await message.reply(
-            text=error_text,
-            reply_markup=kb.choose_iin(len(data["iins_found"])),
-        )
-    else:
-        if chosen_iin_index in range(len(data["iins_found"])):
-            await message.react([ReactionTypeEmoji(emoji="✍")])
-            await state.update_data(index=chosen_iin_index)
-            await state.set_state(IinInfo.country_request)
-        else:
-            await message.react([ReactionTypeEmoji(emoji="👎")])
-            await message.reply(
-                text=error_text,
-                reply_markup=kb.choose_iin(len(data["iins_found"])),
-            )
-
-
-@router.message(IinInfo.country_request)
-async def country_request(message: Message, state: FSMContext) -> None:
-    text = "Укажите страну рождения"
-    await message.answer(text=text, reply_markup=kb.country)
+    await callback.message.answer(text=text, reply_markup=kb.country)
     await state.set_state(IinInfo.input_country)
 
 
 @router.message(IinInfo.input_country)
 async def country_handler(message: Message, state: FSMContext) -> None:
-    pass
-
+    await state.update_data(country=message.text)
+    text = (
+        "Укажите регион (или город) рождения по-русски в соответствии "
+        "с загран. паспортом, на который оформлялся ИИН.\n"
+        'Слова "область", "край", "республика" не указывайте, только '
+        "основная часть название региона.\n"
+        "Например: <i>Москва</i> или <i>Московская</i> или <i>Горьковская</i>"
+    )
+    await message.answer(text=text, reply_markup=kb.remove)
+    await state.set_state(IinInfo.send_pdf)
 
 @router.message(IinInfo.send_pdf)
-async def send_pdf(message: Message, state: FSMContext, index: int) -> None:
+async def send_pdf(message: Message, state: FSMContext) -> None:
+    await state.update_data(region=message.text)
     data = await state.get_data()
+    index = data["index"]
     iin_data = data["iins_found"][index]
     birth_date = data["birth_date"]
     birth_location = f"{data["country"].title()}   {data["region"].upper()}"
-    file_name = f"iin_{data["iins_found"][index]["iin"]}.pdf"
+    file_name = f"iin_{iin_data["iin"]}.pdf"
+    pdf_data = pdfgen.generate_pdf(
+        iin_data=iin_data, birth_date=birth_date, birth_location=birth_location
+    )
     caption = (
         "Распечатайте этот PDF-документ на одной стороне листа А4 "
         "с альбомной (горизонтальной) ориентацией страницы."
     )
-    pdf_data = pdfgen.generate_pdf(
-        iin_data=iin_data, birth_date=birth_date, birth_location=birth_location
-    )
-
     await message.answer_document(
         document=BufferedInputFile(file=pdf_data, filename=file_name), caption=caption
     )

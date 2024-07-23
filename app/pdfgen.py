@@ -93,7 +93,7 @@ def generate_pdf(iin_data: dict, birth_date: date, birth_location: str) -> bytea
     pdf.set_font(style="b", size=15)
     pdf.cell(
         h=6,
-        text=iin_data["last_name"],
+        text=iin_data["last_name"].title(),
         align="L",
         border=False,
         new_x="LMARGIN",
@@ -104,7 +104,7 @@ def generate_pdf(iin_data: dict, birth_date: date, birth_location: str) -> bytea
     pdf.set_font(style="b", size=15)
     pdf.cell(
         h=6,
-        text=iin_data["first_name"],
+        text=iin_data["first_name"].title(),
         align="L",
         border=False,
         new_x="LMARGIN",
@@ -115,7 +115,7 @@ def generate_pdf(iin_data: dict, birth_date: date, birth_location: str) -> bytea
     pdf.set_font(style="b", size=15)
     pdf.cell(
         h=6,
-        text=iin_data["middle_name"],
+        text=iin_data["middle_name"].title(),
         align="L",
         border=False,
         new_x="LMARGIN",
@@ -228,21 +228,33 @@ def generate_pdf(iin_data: dict, birth_date: date, birth_location: str) -> bytea
     pdf.cell(h=6, text=" Фамилия   ", align="L", border=False)
     pdf.set_font(style="b", size=15)
     pdf.cell(
-        h=6, text=f"{iin_data['last_name']}", align="L", border=False, new_y="NEXT"
+        h=6,
+        text=iin_data['last_name'].title(),
+        align="L",
+        border=False,
+        new_y="NEXT",
     )
     pdf.set_x(col2_x)
     pdf.set_font(style="", size=12)
     pdf.cell(h=6, text=" Имя    ", align="L", border=False)
     pdf.set_font(style="b", size=15)
     pdf.cell(
-        h=6, text=f"{iin_data['first_name']}", align="L", border=False, new_y="NEXT"
+        h=6,
+        text=iin_data['first_name'].title(),
+        align="L",
+        border=False,
+        new_y="NEXT",
     )
     pdf.set_x(col2_x)
     pdf.set_font(style="", size=12)
     pdf.cell(h=6, text=" Отчество    ", align="L", border=False)
     pdf.set_font(style="b", size=15)
     pdf.cell(
-        h=6, text=f"{iin_data['middle_name']}", align="L", border=False, new_y="NEXT"
+        h=6,
+        text=iin_data['middle_name'].title(),
+        align="L",
+        border=False,
+        new_y="NEXT",
     )
     pdf.set_x(col2_x)
     pdf.set_font(style="", size=12)
@@ -285,22 +297,4 @@ def generate_pdf(iin_data: dict, birth_date: date, birth_location: str) -> bytea
         align="L",
         border=False,
     )
-    pdf_path = Path("app", "data", "pdf", f"iin_{iin_data['iin']}.pdf")
-    return pdf.output(pdf_path)
-
-
-if __name__ == "__main__":
-    iin_data = {
-    "last_name": "Сидоров",
-    "first_name": "Иван",
-    "middle_name": "Петрович",
-    "iin": "001122345678",
-    # "kgd_date": "2022-10-28",
-    "kgd_date": None,
-    }
-    birth_date = date(1999, 9, 25)
-    birth_location = "Россия   ГОРЬКОВСКАЯ"
-
-    generate_pdf(iin_data, birth_date, birth_location)
-
-    
+    return pdf.output()

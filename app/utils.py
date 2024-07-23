@@ -190,14 +190,8 @@ async def find_iin(birth_date: date, name: str, digit_8th: int = 5) -> list[dict
     async with aiohttp.ClientSession() as session:
         iins_possible = generate_iins(birth_date, digit_8th=digit_8th, quantity=300)
         iins_postkz = await mass_upd_iins_postkz(session, iins_possible)
-        print(iins_postkz)
-        print("-----")
         iins_matched_postkz = match_name_postkz(name, iins_postkz)
-        print(iins_matched_postkz)
-        print("-----")
         iins_empty_postkz = empty_name_postkz(iins_postkz)
-        print(iins_empty_postkz)
-        print("-----")
         iins_possible_postkz = iins_matched_postkz + iins_empty_postkz
         iins_nca = await mass_upd_iins_nca(session, iins_possible_postkz)
         iins_matched_nca = match_name_nca(name, iins_nca)
