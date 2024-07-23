@@ -370,6 +370,7 @@ async def send_pdf(message: Message, state: FSMContext) -> None:
     await message.answer_document(
         document=BufferedInputFile(file=pdf_data, filename=file_name), caption=caption
     )
+    await state.clear()
 
 
 @router.message()
