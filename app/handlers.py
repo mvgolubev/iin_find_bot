@@ -17,7 +17,7 @@ from aiogram.types import (
 from app import constants, pdfgen, utils, keyboards as kb
 
 
-class IinInfo(StatesGroup):
+class BotStatus(StatesGroup):
     input_birth_date = State()
     input_name = State()
     choose_iin = State()
@@ -35,111 +35,99 @@ async def start_handler(message: Message, state: FSMContext) -> None:
     await state.clear()
     text = f"🔎 <b>Поиск ИИН</b>\n\n{constants.DATE_REQUEST}"
     await message.answer(text=text)
-    await state.set_state(IinInfo.input_birth_date)
+    await state.set_state(BotStatus.input_birth_date)
 
 
-@router.message(IinInfo.input_birth_date)
+@router.message(F.text, BotStatus.input_birth_date)
 async def date_handler(message: Message, state: FSMContext) -> None:
-    if message.content_type == "text":
-        try:
-            birth_date = date.fromisoformat(message.text)
-        except ValueError as date_error:
-            await message.react([ReactionTypeEmoji(emoji="👎")])
-            await message.reply(
-                text=f"⚠️ Дата указана некорректно\n({date_error})\n{constants.DATE_REQUEST}"
-            )
-        else:
-            await message.react([ReactionTypeEmoji(emoji="✍")])
-            await message.chat.do(action="typing")
-            await state.update_data(birth_date=birth_date)
-            await message.answer(
-                text="Отправьте имя и первую букву фамилии.\nНапример: <i>Александр Б</i>"
-            )
-            await state.set_state(IinInfo.input_name)
-    else:
+    try:
+        birth_date = date.fromisoformat(message.text)
+    except ValueError as date_error:
         await message.react([ReactionTypeEmoji(emoji="👎")])
         await message.reply(
-            text=f"⚠️ Это не текстовое сообщение!\n{constants.DATE_REQUEST}"
+            text=f"⚠️ Дата указана некорректно\n({date_error})\n{constants.DATE_REQUEST}"
         )
-
-
-@router.message(IinInfo.input_name)
-async def name_handler(message: Message, state: FSMContext) -> None:
-    if message.content_type == "text":
+    else:
         await message.react([ReactionTypeEmoji(emoji="✍")])
         await message.chat.do(action="typing")
-        name = message.text.strip(" .").casefold()
-        await state.update_data(name=name)
-        data = await state.get_data()
-        text = (
-            "🤖🔎 Начал поиск ИИН со следующими параметрами:\n\n"
-            f"<b>◦ ИИН:</b> {data['birth_date']:%y%m%d}05xxxx\n"
-            f"<b>◦ Имя:</b> {str.title(data['name'])}\n"
-            f"<b>◦ Дата рождения:</b> {data['birth_date']}\n\n"
-            "Ждите завершения поиска (несколько секунд)... ⏱️"
+        await state.update_data(birth_date=birth_date)
+        await message.answer(
+            text="Отправьте имя и первую букву фамилии.\nНапример: <i>Александр Б</i>"
         )
-        await message.answer(text=text)
-        await message.chat.do(action="typing")
-        # iins_found = await utils.find_iin(
-        #     birth_date=data["birth_date"], name=data["name"], digit_8th=5
-        # )
-        iins_found = [
-            {
-                "iin": "830101050359",
-                "name": "Александр С",
-                "kgd_date": "2022-10-11",
-                "last_name": "СОКОЛОВ",
-                "first_name": "АЛЕКСАНДР",
-                "middle_name": "НИКОЛАЕВИЧ",
-            },
-        ]
-        #     {
-        #         "iin": "830101050438",
-        #         "name": "Александр С",
-        #         "kgd_date": None,
-        #         "last_name": "СТЕПАНОВ",
-        #         "first_name": "АЛЕКСАНДР",
-        #         "middle_name": "АЛЕКСАНДРОВИЧ",
-        #     },
-        #     {
-        #         "iin": "830101051234",
-        #         "name": "Александр С",
-        #         "kgd_date": "2023-04-12",
-        #         "last_name": "СИДОРОВ",
-        #         "first_name": "АЛЕКСАНДР",
-        #         "middle_name": "ИВАНОВИЧ",
-        #     },
-        # ]
+        await state.set_state(BotStatus.input_name)
 
-        await state.update_data(iins_found=iins_found)
-        if len(iins_found) == 0:
-            text = f"{constants.NOT_FOUND_TEXT}{constants.DEEP_SEARCH_TEXT}"
-        else:
-            text = f"✅ <b>Найдено: {len(iins_found)} ИИН</b>\n"
-            if len(iins_found) > 1:
-                text += "Ваш ИИН только один из них (который с вашими ФИО).\n"
-            text += "\n"
-            for iin in iins_found:
-                text += f"<b>ИИН:</b> <code>{iin['iin']}</code>\n"
-                full_name = utils.get_full_name(iin)
-                text += f"<b>ФИО:</b> {full_name}\n"
-                text += "Добавлен в базу налоговой: "
-                if iin["kgd_date"]:
-                    text += f"{iin['kgd_date']}\n\n"
-                else:
-                    text += '(нет) - см. "Info"\n\n'
-            text += (
-                "<i>(ткните в значение ИИН, чтобы скопировать его в буфер)</i>\n\n"
-                'Сказать спасибо можно по кнопке <b>"Donate"</b>\n\n'
-                "🤷‍♂️ <b>Среди найденных ИИН нет вашего?</b>\n"
-                f"{constants.DEEP_SEARCH_TEXT}"
-            )
-        await message.answer(text=text, reply_markup=kb.standard_search_result)
+
+@router.message(F.text, BotStatus.input_name)
+async def name_handler(message: Message, state: FSMContext) -> None:
+    await message.react([ReactionTypeEmoji(emoji="✍")])
+    await message.chat.do(action="typing")
+    name = message.text.strip(" .").casefold()
+    await state.update_data(name=name)
+    data = await state.get_data()
+    text = (
+        "🤖🔎 Начал поиск ИИН со следующими параметрами:\n\n"
+        f"<b>◦ ИИН:</b> {data['birth_date']:%y%m%d}05xxxx\n"
+        f"<b>◦ Имя:</b> {str.title(data['name'])}\n"
+        f"<b>◦ Дата рождения:</b> {data['birth_date']}\n\n"
+        "Ждите завершения поиска (несколько секунд)... ⏱️"
+    )
+    await message.answer(text=text)
+    await message.chat.do(action="typing")
+    # iins_found = await utils.find_iin(
+    #     birth_date=data["birth_date"], name=data["name"], digit_8th=5
+    # )
+    iins_found = [
+        {
+            "iin": "830101050359",
+            "name": "Александр С",
+            "kgd_date": "2022-10-11",
+            "last_name": "СОКОЛОВ",
+            "first_name": "АЛЕКСАНДР",
+            "middle_name": "НИКОЛАЕВИЧ",
+        },
+        {
+            "iin": "830101050438",
+            "name": "Александр С",
+            "kgd_date": None,
+            "last_name": "СТЕПАНОВ",
+            "first_name": "АЛЕКСАНДР",
+            "middle_name": "АЛЕКСАНДРОВИЧ",
+        },
+    ]
+    #     {
+    #         "iin": "830101051234",
+    #         "name": "Александр С",
+    #         "kgd_date": "2023-04-12",
+    #         "last_name": "СИДОРОВ",
+    #         "first_name": "АЛЕКСАНДР",
+    #         "middle_name": "ИВАНОВИЧ",
+    #     },
+    # ]
+
+    await state.update_data(iins_found=iins_found)
+    if len(iins_found) == 0:
+        text = f"{constants.NOT_FOUND_TEXT}{constants.DEEP_SEARCH_TEXT}"
     else:
-        await message.react([ReactionTypeEmoji(emoji="👎")])
-        await message.reply(
-            text="⚠️ Это не текстовое сообщение!\nОтправьте имя и первую букву фамилии."
+        text = f"✅ <b>Найдено: {len(iins_found)} ИИН</b>\n"
+        if len(iins_found) > 1:
+            text += "Ваш ИИН только один из них (который с вашими ФИО).\n"
+        text += "\n"
+        for iin in iins_found:
+            text += f"<b>ИИН:</b> <code>{iin['iin']}</code>\n"
+            full_name = utils.get_full_name(iin)
+            text += f"<b>ФИО:</b> {full_name}\n"
+            text += "Добавлен в базу налоговой: "
+            if iin["kgd_date"]:
+                text += f"{iin['kgd_date']}\n\n"
+            else:
+                text += '(нет) - см. "Info"\n\n'
+        text += (
+            "<i>(ткните в значение ИИН, чтобы скопировать его в буфер)</i>\n\n"
+            'Сказать спасибо можно по кнопке <b>"Donate"</b>\n\n'
+            "🤷‍♂️ <b>Среди найденных ИИН нет вашего?</b>\n"
+            f"{constants.DEEP_SEARCH_TEXT}"
         )
+    await message.answer(text=text, reply_markup=kb.standard_search_result)
 
 
 @router.callback_query(F.data == "cb_standard_search")
@@ -295,7 +283,7 @@ async def callback_pdf_start(callback: CallbackQuery, state: FSMContext) -> None
         await default_handler(callback.message)
     elif len(data["iins_found"]) == 1:
         await state.update_data(index=0)
-        await state.set_state(IinInfo.country_request)
+        await state.set_state(BotStatus.country_request)
         await country_request(callback, state)
     elif len(data["iins_found"]) > 1:
         text = "<b>Какой из найденных ИИН ваш?</b>\n\n"
@@ -306,18 +294,18 @@ async def callback_pdf_start(callback: CallbackQuery, state: FSMContext) -> None
         await callback.message.answer(
             text=text, reply_markup=kb.choose_iin(len(data["iins_found"]))
         )
-        await state.set_state(IinInfo.choose_iin)
+        await state.set_state(BotStatus.choose_iin)
 
 
-@router.callback_query(F.data, IinInfo.choose_iin)
+@router.callback_query(F.data, BotStatus.choose_iin)
 async def callback_choose_iin(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer(text="")
     await state.update_data(index=int(callback.data))
-    await state.set_state(IinInfo.country_request)
+    await state.set_state(BotStatus.country_request)
     await country_request(callback, state)
 
 
-@router.callback_query(IinInfo.country_request)
+@router.callback_query(BotStatus.country_request)
 async def country_request(callback: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
     iin = data["iins_found"][data["index"]]
@@ -333,10 +321,10 @@ async def country_request(callback: CallbackQuery, state: FSMContext) -> None:
         "или <i>Грузия</i> или <i>Латвия</i>"
     )
     await callback.message.answer(text=text, reply_markup=kb.country)
-    await state.set_state(IinInfo.input_country)
+    await state.set_state(BotStatus.input_country)
 
 
-@router.message(F.text, IinInfo.input_country)
+@router.message(F.text, BotStatus.input_country)
 async def country_handler(message: Message, state: FSMContext) -> None:
     await state.update_data(country=message.text)
     text = (
@@ -351,10 +339,10 @@ async def country_handler(message: Message, state: FSMContext) -> None:
         "на этом шаге отправьте одну любую букву"
     )
     await message.answer(text=text, reply_markup=kb.remove)
-    await state.set_state(IinInfo.send_pdf)
+    await state.set_state(BotStatus.send_pdf)
 
 
-@router.message(F.text, IinInfo.send_pdf)
+@router.message(F.text, BotStatus.send_pdf)
 async def send_pdf(message: Message, state: FSMContext) -> None:
     await state.update_data(region=message.text)
     data = await state.get_data()
@@ -384,4 +372,8 @@ async def send_pdf(message: Message, state: FSMContext) -> None:
 @router.message()
 async def default_handler(message: Message) -> None:
     await message.react([ReactionTypeEmoji(emoji="🤷‍♂️")])
-    await message.answer(text="Чтобы начать, отправьте: /start")
+    text = (
+        "⚠️ Сообщение не распознано.\nПовторите ввод.\n\n"
+        "Чтобы начать новый поиск ИИН, отправьте: /start"
+    )
+    await message.answer(text=text)
