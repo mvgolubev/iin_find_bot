@@ -1,5 +1,6 @@
 aiogram
 beautifulsoup4
+fpdf2
 lxml
 opencv-python-headless
 python-dotenv
