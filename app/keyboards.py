@@ -65,7 +65,7 @@ def print_iin(found_quantity: int) -> InlineKeyboardMarkup:
 
 def choose_iin(found_quantity: int) -> InlineKeyboardMarkup:
     num_buttons = [
-        InlineKeyboardButton(text=f"{i+1}", callback_data=f"{i}")
+        InlineKeyboardButton(text=f"{i+1}", callback_data=f"pdf:{i}")
         for i in range(found_quantity)
     ]
     return InlineKeyboardMarkup(inline_keyboard=[num_buttons])

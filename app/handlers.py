@@ -297,10 +297,10 @@ async def callback_pdf_start(callback: CallbackQuery, state: FSMContext) -> None
         await state.set_state(BotStatus.choose_iin)
 
 
-@router.callback_query(F.data, BotStatus.choose_iin)
+@router.callback_query(F.data.startswith("pdf:"), BotStatus.choose_iin)
 async def callback_choose_iin(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer(text="")
-    await state.update_data(index=int(callback.data))
+    await state.update_data(index=int(callback.data.removeprefix("pdf:")))
     await state.set_state(BotStatus.country_request)
     await country_request(callback, state)
 
@@ -334,9 +334,9 @@ async def country_handler(message: Message, state: FSMContext) -> None:
         'Обозначения "ОБЛ.", "ГОР.", "Г." не указывайте, только '
         "основная часть названия региона/города.\n"
         "Например: <i>Москва</i> или <i>Московская</i> или <i>Горьковская</i>\n\n"
-        "Если кроме современного названия страны глубже регион в паспорте "
+        "Если кроме современного названия страны подробнее регион в паспорте "
         'не указан (например, в паспорте "УКРАИНСКАЯ ССР / USSR"), тогда '
-        "на этом шаге отправьте одну любую букву"
+        "на этом шаге отправьте одну точку"
     )
     await message.answer(text=text, reply_markup=kb.remove)
     await state.set_state(BotStatus.send_pdf)
@@ -349,10 +349,10 @@ async def send_pdf(message: Message, state: FSMContext) -> None:
     index = data["index"]
     iin_data = data["iins_found"][index]
     birth_date = data["birth_date"]
-    if len(data["region"]) > 1:
-        birth_location = f"{data["country"].title()}   {data["region"].upper()}"
-    else:
+    if data["region"] == ".":
         birth_location = data["country"].title()
+    else:
+        birth_location = f"{data["country"].title()}   {data["region"].upper()}"
     file_name = f"iin_{iin_data["iin"]}.pdf"
     pdf_data = pdfgen.generate_pdf(
         iin_data=iin_data, birth_date=birth_date, birth_location=birth_location
