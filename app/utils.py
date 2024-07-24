@@ -14,7 +14,7 @@ def generate_iins(
     for suffix in range(1, quantity):
         iin_11 = f"{birth_date:%y%m%d}0{digit_8th}{str(suffix).zfill(3)}"
         if checksum(iin_11) < 10:
-            iins_possible.append(iin_11 + str(checksum(iin_11)))
+            iins_possible.append(f"{iin_11}{checksum(iin_11)}")
     return iins_possible
 
 
@@ -177,6 +177,13 @@ def match_name_nca(input_name: str, nca_updated_iins: list[dict]) -> list[dict]:
         if iin_name == input_name:
             iins_matched_nca.append(iin)
     return iins_matched_nca
+
+
+def get_full_name(iin_data: dict) -> str:
+    first = iin_data["first_name"] if iin_data["first_name"] else ""
+    middle = iin_data["middle_name"] if iin_data["middle_name"] else ""
+    last = iin_data["last_name"] if iin_data["last_name"] else ""
+    return f"{last} {first} {middle}".strip().title()
 
 
 async def find_iin(birth_date: date, name: str, digit_8th: int = 5) -> list[dict]:
