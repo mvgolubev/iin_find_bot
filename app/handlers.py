@@ -73,37 +73,9 @@ async def name_handler(message: Message, state: FSMContext) -> None:
     )
     await message.answer(text=text)
     await message.chat.do(action="typing")
-    # iins_found = await utils.find_iin(
-    #     birth_date=data["birth_date"], name=data["name"], digit_8th=5
-    # )
-    iins_found = [
-        {
-            "iin": "830101050359",
-            "name": "Александр С",
-            "kgd_date": "2022-10-11",
-            "last_name": "СОКОЛОВ",
-            "first_name": "АЛЕКСАНДР",
-            "middle_name": "НИКОЛАЕВИЧ",
-        },
-        {
-            "iin": "830101050438",
-            "name": "Александр С",
-            "kgd_date": None,
-            "last_name": "СТЕПАНОВ",
-            "first_name": "АЛЕКСАНДР",
-            "middle_name": "АЛЕКСАНДРОВИЧ",
-        },
-    ]
-    #     {
-    #         "iin": "830101051234",
-    #         "name": "Александр С",
-    #         "kgd_date": "2023-04-12",
-    #         "last_name": "СИДОРОВ",
-    #         "first_name": "АЛЕКСАНДР",
-    #         "middle_name": "ИВАНОВИЧ",
-    #     },
-    # ]
-
+    iins_found = await utils.find_iin(
+        birth_date=data["birth_date"], name=data["name"], digit_8th=5
+    )
     await state.update_data(iins_found=iins_found)
     if len(iins_found) == 0:
         text = f"{constants.NOT_FOUND_TEXT}{constants.DEEP_SEARCH_TEXT}"
