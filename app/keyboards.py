@@ -21,7 +21,6 @@ pdf_begin_button = InlineKeyboardButton(
 rtf_button = InlineKeyboardButton(text="📄 RTF-шаблон", callback_data="cb_rtf")
 docx_button = InlineKeyboardButton(text="📄 DOCX-шаблон", callback_data="cb_docx")
 
-
 standard_search_result = InlineKeyboardMarkup(
     inline_keyboard=[
         [deep_search_button],
@@ -39,6 +38,14 @@ deep_search_result = InlineKeyboardMarkup(
 
 info = InlineKeyboardMarkup(inline_keyboard=[[donate_button, standard_search_button]])
 donate = InlineKeyboardMarkup(inline_keyboard=[[info_button, standard_search_button]])
+remove = ReplyKeyboardRemove(remove_keyboard=True)
+
+country = ReplyKeyboardMarkup(
+    keyboard=[[KeyboardButton(text="Россия")]],
+    resize_keyboard=True,
+    one_time_keyboard=True,
+    input_field_placeholder="Страна",
+)
 
 
 def print_iin(found_quantity: int) -> InlineKeyboardMarkup:
@@ -62,13 +69,3 @@ def choose_iin(found_quantity: int) -> InlineKeyboardMarkup:
         for i in range(found_quantity)
     ]
     return InlineKeyboardMarkup(inline_keyboard=[num_buttons])
-
-
-country = ReplyKeyboardMarkup(
-    keyboard=[[KeyboardButton(text="Россия")]],
-    resize_keyboard=True,
-    one_time_keyboard=True,
-    input_field_placeholder="Страна",
-)
-
-remove = ReplyKeyboardRemove(remove_keyboard=True)

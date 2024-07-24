@@ -72,11 +72,11 @@ async def name_handler(message: Message, state: FSMContext) -> None:
         await state.update_data(name=name)
         data = await state.get_data()
         text = (
-            "🤖🔎 Начал поиск ИИН со следующими параметрами:\n"
+            "🤖🔎 Начал поиск ИИН со следующими параметрами:\n\n"
             f"<b>◦ ИИН:</b> {data['birth_date']:%y%m%d}05xxxx\n"
             f"<b>◦ Имя:</b> {str.title(data['name'])}\n"
-            f"<b>◦ Дата рождения:</b> {data['birth_date']}\n"
-            "Ждите завершения поиска... ⏱️"
+            f"<b>◦ Дата рождения:</b> {data['birth_date']}\n\n"
+            "Ждите завершения поиска (несколько секунд)... ⏱️"
         )
         await message.answer(text=text)
         await message.chat.do(action="typing")
@@ -156,11 +156,11 @@ async def callback_deep_search(callback: CallbackQuery, state: FSMContext) -> No
         await default_handler(callback.message)
     else:
         text = (
-            "🤖🔎 Дополнительно ищу (среди более старых ИИН):\n"
+            "🤖🔎 Дополнительно ищу (среди более старых ИИН):\n\n"
             f"<b>◦ ИИН:</b> {data['birth_date']:%y%m%d}00xxxx\n"
             f"<b>◦ Имя:</b> {str.title(data['name'])}\n"
-            f"<b>◦ Дата рождения</b>: {data['birth_date']}\n"
-            "Ждите завершения поиска... ⏱️"
+            f"<b>◦ Дата рождения</b>: {data['birth_date']}\n\n"
+            "Ждите завершения поиска (несколько секунд)... ⏱️"
         )
         await callback.message.answer(text=text)
         await callback.message.chat.do(action="typing")
@@ -270,10 +270,10 @@ async def callback_rtf(callback: CallbackQuery) -> None:
     await callback.answer(text="")
     file_path = Path("app", "doc_templates", f"iin_template_{randint(1,3)}.rtf")
     caption = (
-        f"Скачайте и отредактируйте этот RTF-документ.\n{constants.RTF_DOCX_CAPTION}"
+        f"📝 Скачайте и отредактируйте этот RTF-документ.\n{constants.RTF_DOCX_CAPTION}"
     )
     await callback.message.answer_document(
-        document=FSInputFile(path=file_path), caption=caption
+        document=FSInputFile(path=file_path), caption=caption, reply_markup=kb.info
     )
 
 
@@ -281,11 +281,9 @@ async def callback_rtf(callback: CallbackQuery) -> None:
 async def callback_docx(callback: CallbackQuery) -> None:
     await callback.answer(text="")
     file_path = Path("app", "doc_templates", f"iin_template_{randint(1,3)}.docx")
-    caption = (
-        f"Скачайте и отредактируйте этот DOCX-документ.\n{constants.RTF_DOCX_CAPTION}"
-    )
+    caption = f"📝 Скачайте и отредактируйте этот DOCX-документ.\n{constants.RTF_DOCX_CAPTION}"
     await callback.message.answer_document(
-        document=FSInputFile(path=file_path), caption=caption
+        document=FSInputFile(path=file_path), caption=caption, reply_markup=kb.info
     )
 
 
@@ -311,7 +309,7 @@ async def callback_pdf_start(callback: CallbackQuery, state: FSMContext) -> None
         await state.set_state(IinInfo.choose_iin)
 
 
-@router.callback_query(IinInfo.choose_iin)
+@router.callback_query(F.data, IinInfo.choose_iin)
 async def callback_choose_iin(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer(text="")
     await state.update_data(index=int(callback.data))
@@ -321,12 +319,12 @@ async def callback_choose_iin(callback: CallbackQuery, state: FSMContext) -> Non
 
 @router.callback_query(IinInfo.country_request)
 async def country_request(callback: CallbackQuery, state: FSMContext) -> None:
-    # await callback.answer(text="")
     data = await state.get_data()
     iin = data["iins_found"][data["index"]]
     text = (
         f"<b>◦ ИИН:</b> {iin["iin"]}\n"
         f"<b>◦ ФИО:</b> {utils.get_full_name(iin)}\n\n"
+        "🌎 <b>Страна рождения</b>\n\n"
         "Укажите страну рождения по-русски в соответствии с загран. "
         "паспортом, на который оформлялся ИИН.\n"
         'Если в паспорте указано "USSR", тогда укажите современное '
@@ -338,37 +336,47 @@ async def country_request(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(IinInfo.input_country)
 
 
-@router.message(IinInfo.input_country)
+@router.message(F.text, IinInfo.input_country)
 async def country_handler(message: Message, state: FSMContext) -> None:
     await state.update_data(country=message.text)
     text = (
+        "🌎 <b>Регион (или город) рождения</b>\n\n"
         "Укажите регион (или город) рождения по-русски в соответствии "
         "с загран. паспортом, на который оформлялся ИИН.\n"
-        'Слова "область", "край", "республика" не указывайте, только '
-        "основная часть название региона.\n"
-        "Например: <i>Москва</i> или <i>Московская</i> или <i>Горьковская</i>"
+        'Обозначения "ОБЛ.", "ГОР.", "Г." не указывайте, только '
+        "основная часть названия региона/города.\n"
+        "Например: <i>Москва</i> или <i>Московская</i> или <i>Горьковская</i>\n\n"
+        "Если кроме современного названия страны глубже регион в паспорте "
+        'не указан (например, в паспорте "УКРАИНСКАЯ ССР / USSR"), тогда '
+        "на этом шаге отправьте одну любую букву"
     )
     await message.answer(text=text, reply_markup=kb.remove)
     await state.set_state(IinInfo.send_pdf)
 
-@router.message(IinInfo.send_pdf)
+
+@router.message(F.text, IinInfo.send_pdf)
 async def send_pdf(message: Message, state: FSMContext) -> None:
     await state.update_data(region=message.text)
     data = await state.get_data()
     index = data["index"]
     iin_data = data["iins_found"][index]
     birth_date = data["birth_date"]
-    birth_location = f"{data["country"].title()}   {data["region"].upper()}"
+    if len(data["region"]) > 1:
+        birth_location = f"{data["country"].title()}   {data["region"].upper()}"
+    else:
+        birth_location = data["country"].title()
     file_name = f"iin_{iin_data["iin"]}.pdf"
     pdf_data = pdfgen.generate_pdf(
         iin_data=iin_data, birth_date=birth_date, birth_location=birth_location
     )
     caption = (
-        "Распечатайте этот PDF-документ на одной стороне листа А4 "
+        "🖨️ Распечатайте этот PDF-документ на одной стороне листа А4 "
         "с альбомной (горизонтальной) ориентацией страницы."
     )
     await message.answer_document(
-        document=BufferedInputFile(file=pdf_data, filename=file_name), caption=caption
+        document=BufferedInputFile(file=pdf_data, filename=file_name),
+        caption=caption,
+        reply_markup=kb.info,
     )
     await state.clear()
 
