@@ -14,7 +14,7 @@ from aiogram.types import (
     BufferedInputFile,
 )
 
-from app import constants, pdfgen, utils, keyboards as kb
+from app import constants, utils, pdf_generator, keyboards as kb
 
 
 class BotStatus(StatesGroup):
@@ -326,7 +326,7 @@ async def send_pdf(message: Message, state: FSMContext) -> None:
     else:
         birth_location = f"{data["country"].title()}   {data["region"].upper()}"
     file_name = f"iin_{iin_data["iin"]}.pdf"
-    pdf_data = pdfgen.generate_pdf(
+    pdf_data = pdf_generator.generate_pdf(
         iin_data=iin_data, birth_date=birth_date, birth_location=birth_location
     )
     caption = (
