@@ -1,6 +1,6 @@
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/126.0.0.0 Safari/537.36"
+    "Chrome/127.0.0.0 Safari/537.36"
 )
 POSTKZ_API_URL = "https://post.kz/mail-app/api/checkIinBin"
 GBDFL_URL = (
@@ -35,3 +35,4 @@ RTF_DOCX_CAPTION = (
     "🖨️ Распечатайте отредактированный документ на одной стороне листа А4 "
     "с альбомной (горизонтальной) ориентацией страницы."
 )
+SEARCH_LOG_DB_FILE = "search_log.db"

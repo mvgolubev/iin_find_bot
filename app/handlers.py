@@ -14,7 +14,7 @@ from aiogram.types import (
     BufferedInputFile,
 )
 
-from app import constants, pdfgen, utils, keyboards as kb
+from app import constants, utils, pdf_generator, database as db, keyboards as kb
 
 
 class BotStatus(StatesGroup):
@@ -73,9 +73,20 @@ async def name_handler(message: Message, state: FSMContext) -> None:
     )
     await message.answer(text=text)
     await message.chat.do(action="typing")
+    tg_user = {
+        "id": message.from_user.id,
+        "nick": message.from_user.username,
+        "name": f"{message.from_user.first_name} {message.from_user.last_name}",
+    }
+    search = {
+        "date": f"{data["birth_date"]:%Y-%m-%d}",
+        "name": data["name"].title(),
+    }
+    row_num = await db.add_log_search(tg_user, search, search_type=0)
     iins_found = await utils.find_iin(
         birth_date=data["birth_date"], name=data["name"], digit_8th=5
     )
+    await db.add_log_count(row_num, len(iins_found))
     await state.update_data(iins_found=iins_found)
     if len(iins_found) == 0:
         text = f"{constants.NOT_FOUND_TEXT}{constants.DEEP_SEARCH_TEXT}"
@@ -124,9 +135,20 @@ async def callback_deep_search(callback: CallbackQuery, state: FSMContext) -> No
         )
         await callback.message.answer(text=text)
         await callback.message.chat.do(action="typing")
+        tg_user = {
+            "id": callback.from_user.id,
+            "nick": callback.from_user.username,
+            "name": f"{callback.from_user.first_name} {callback.from_user.last_name}",
+        }
+        search = {
+            "date": f"{data["birth_date"]:%Y-%m-%d}",
+            "name": data["name"].title(),
+        }
+        row_num = await db.add_log_search(tg_user, search, search_type=1)
         iins_found = await utils.find_iin(
             birth_date=data["birth_date"], name=data["name"], digit_8th=0
         )
+        await db.add_log_count(row_num, len(iins_found))
         await state.update_data(iins_found=iins_found)
         if len(iins_found) == 0:
             text = f"{constants.NOT_FOUND_TEXT}"
@@ -326,7 +348,7 @@ async def send_pdf(message: Message, state: FSMContext) -> None:
     else:
         birth_location = f"{data["country"].title()}   {data["region"].upper()}"
     file_name = f"iin_{iin_data["iin"]}.pdf"
-    pdf_data = pdfgen.generate_pdf(
+    pdf_data = pdf_generator.generate_pdf(
         iin_data=iin_data, birth_date=birth_date, birth_location=birth_location
     )
     caption = (

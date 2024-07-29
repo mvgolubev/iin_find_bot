@@ -1,4 +1,5 @@
 aiogram
+aiosqlite
 beautifulsoup4
 fpdf2
 lxml
