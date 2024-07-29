@@ -1,6 +1,5 @@
 from datetime import datetime
 from pathlib import Path
-import asyncio
 import aiosqlite
 from app import constants
 
