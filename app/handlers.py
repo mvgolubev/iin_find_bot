@@ -73,10 +73,12 @@ async def name_handler(message: Message, state: FSMContext) -> None:
     )
     await message.answer(text=text)
     await message.chat.do(action="typing")
+    tg_first_name = message.from_user.first_name
+    tg_last_name = message.from_user.last_name
     tg_user = {
         "id": message.from_user.id,
-        "nick": message.from_user.username,
-        "name": f"{message.from_user.first_name} {message.from_user.last_name}",
+        "nick": message.from_user.username or "",
+        "name": f"{tg_first_name}{' '+tg_last_name if tg_last_name else ''}",
     }
     search = {
         "date": f"{data["birth_date"]:%Y-%m-%d}",
@@ -135,10 +137,13 @@ async def callback_deep_search(callback: CallbackQuery, state: FSMContext) -> No
         )
         await callback.message.answer(text=text)
         await callback.message.chat.do(action="typing")
+
+        tg_first_name = callback.from_user.first_name
+        tg_last_name = callback.from_user.last_name
         tg_user = {
             "id": callback.from_user.id,
-            "nick": callback.from_user.username,
-            "name": f"{callback.from_user.first_name} {callback.from_user.last_name}",
+            "nick": callback.from_user.username or "",
+            "name": f"{tg_first_name}{' '+tg_last_name if tg_last_name else ''}",
         }
         search = {
             "date": f"{data["birth_date"]:%Y-%m-%d}",
