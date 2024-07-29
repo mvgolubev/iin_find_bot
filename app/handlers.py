@@ -77,7 +77,7 @@ async def name_handler(message: Message, state: FSMContext) -> None:
     tg_last_name = message.from_user.last_name
     tg_user = {
         "id": message.from_user.id,
-        "nick": message.from_user.username or "",
+        "nick": message.from_user.username,
         "name": f"{tg_first_name}{' '+tg_last_name if tg_last_name else ''}",
     }
     search = {
@@ -142,7 +142,7 @@ async def callback_deep_search(callback: CallbackQuery, state: FSMContext) -> No
         tg_last_name = callback.from_user.last_name
         tg_user = {
             "id": callback.from_user.id,
-            "nick": callback.from_user.username or "",
+            "nick": callback.from_user.username,
             "name": f"{tg_first_name}{' '+tg_last_name if tg_last_name else ''}",
         }
         search = {
