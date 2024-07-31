@@ -180,9 +180,9 @@ def match_name_nca(input_name: str, nca_updated_iins: list[dict]) -> list[dict]:
 
 
 def get_full_name(iin_data: dict) -> str:
-    first = iin_data["first_name"] if iin_data["first_name"] else ""
-    middle = iin_data["middle_name"] if iin_data["middle_name"] else ""
-    last = iin_data["last_name"] if iin_data["last_name"] else ""
+    first = iin_data["first_name"] or ""
+    middle = iin_data["middle_name"] or ""
+    last = iin_data["last_name"] or ""
     return f"{last} {first} {middle}".strip().title()
 
 
