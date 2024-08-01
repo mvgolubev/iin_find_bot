@@ -83,12 +83,16 @@ async def name_handler(message: Message, state: FSMContext) -> None:
     search = {
         "date": f"{data["birth_date"]:%Y-%m-%d}",
         "name": data["name"].title(),
+        "digit_8th": 5,
+        "auto": 0,
     }
-    row_num = await db.add_log_search(tg_user, search, search_type=0)
-    iins_found = await utils.find_iin(
+    row_num = await db.add_log_record(tg_user, search)
+    iins_found, cache_used, _ = await utils.find_iin(
         birth_date=data["birth_date"], name=data["name"], digit_8th=5
     )
-    await db.add_log_count(row_num, len(iins_found))
+    await db.update_log_record(
+        rowid=row_num, cache_used=cache_used, found_count=len(iins_found)
+    )
     await state.update_data(iins_found=iins_found)
     if len(iins_found) == 0:
         text = f"{constants.NOT_FOUND_TEXT}{constants.DEEP_SEARCH_TEXT}"
@@ -102,7 +106,7 @@ async def name_handler(message: Message, state: FSMContext) -> None:
             full_name = utils.get_full_name(iin)
             text += f"<b>ФИО:</b> {full_name}\n"
             text += "Добавлен в базу налоговой: "
-            if iin["kgd_date"]:
+            if iin.get("kgd_date"):
                 text += f"{iin['kgd_date']}\n\n"
             else:
                 text += '(нет) - см. "Info"\n\n'
@@ -148,12 +152,16 @@ async def callback_deep_search(callback: CallbackQuery, state: FSMContext) -> No
         search = {
             "date": f"{data["birth_date"]:%Y-%m-%d}",
             "name": data["name"].title(),
+            "digit_8th": 0,
+            "auto": 0,
         }
-        row_num = await db.add_log_search(tg_user, search, search_type=1)
-        iins_found = await utils.find_iin(
+        row_num = await db.add_log_record(tg_user, search)
+        iins_found, cache_used, _ = await utils.find_iin(
             birth_date=data["birth_date"], name=data["name"], digit_8th=0
         )
-        await db.add_log_count(row_num, len(iins_found))
+        await db.update_log_record(
+            rowid=row_num, cache_used=cache_used, found_count=len(iins_found)
+        )
         await state.update_data(iins_found=iins_found)
         if len(iins_found) == 0:
             text = f"{constants.NOT_FOUND_TEXT}"
@@ -167,7 +175,7 @@ async def callback_deep_search(callback: CallbackQuery, state: FSMContext) -> No
                 full_name = utils.get_full_name(iin)
                 text += f"<b>ФИО:</b> {full_name}\n"
                 text += "Добавлен в базу налоговой: "
-                if iin["kgd_date"]:
+                if iin.get("kgd_date"):
                     text += f"{iin['kgd_date']}\n\n"
                 else:
                     text += '(нет) - см. "Info"\n\n'

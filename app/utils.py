@@ -4,7 +4,7 @@ from datetime import date
 import aiohttp
 from bs4 import BeautifulSoup
 
-from app import constants, captcha
+from app import constants, captcha, database as db
 
 
 def generate_iins(
@@ -83,11 +83,7 @@ def empty_name_postkz(iins_postkz: list[dict]) -> list[dict]:
     iins_empty_postkz = []
     for i in range(last_est_index):
         if not iins_postkz[i]["name"]:
-            empty_iin = {
-                "iin": iins_postkz[i]["iin"],
-                "name": None,
-                "kgd_date": None,
-            }
+            empty_iin = {"iin": iins_postkz[i]["iin"]}
             iins_empty_postkz.append(empty_iin)
     return iins_empty_postkz
 
@@ -186,13 +182,44 @@ def get_full_name(iin_data: dict) -> str:
     return f"{last} {first} {middle}".strip().title()
 
 
-async def find_iin(birth_date: date, name: str, digit_8th: int = 5) -> list[dict]:
+async def find_iin(birth_date: date, name: str, digit_8th: int = 5) -> tuple[list[dict], list[dict]]:
+    cache_used, cached_data = await db.read_cache(birth_date, name, digit_8th)
     async with aiohttp.ClientSession() as session:
-        iins_possible = generate_iins(birth_date, digit_8th=digit_8th, quantity=300)
-        iins_postkz = await mass_upd_iins_postkz(session, iins_possible)
-        iins_matched_postkz = match_name_postkz(name, iins_postkz)
-        iins_empty_postkz = empty_name_postkz(iins_postkz)
+        if cache_used < 2:
+            if cache_used == 0:
+                iins_possible = generate_iins(birth_date, digit_8th=digit_8th, quantity=300)
+                iins_postkz = await mass_upd_iins_postkz(session, iins_possible)
+                data_to_cache = {
+                    "search_date": birth_date,
+                    "digit_8th": digit_8th,
+                    "iins_postkz": iins_postkz,
+                }
+                await db.write_cache(cache_level=1, cache_data=data_to_cache)
+            if cache_used == 1:
+                iins_postkz = cached_data
+            iins_matched_postkz = match_name_postkz(name, iins_postkz)
+            iins_empty_postkz = empty_name_postkz(iins_postkz)
+            data_to_cache = {
+                    "search_date": birth_date,
+                    "search_name": name,
+                    "digit_8th": digit_8th,
+                    "iins_matched_postkz": iins_matched_postkz,
+                    "iins_empty_postkz": iins_empty_postkz,
+                }
+            await db.write_cache(cache_level=2, cache_data=data_to_cache)
+        elif cache_used == 2:
+            iins_matched_postkz = cached_data[0]
+            iins_empty_postkz = cached_data[1]
+
         iins_possible_postkz = iins_matched_postkz + iins_empty_postkz
         iins_nca = await mass_upd_iins_nca(session, iins_possible_postkz)
-        iins_matched_nca = match_name_nca(name, iins_nca)
-    return iins_matched_nca
+        iins_found = match_name_nca(name, iins_nca)
+    return iins_found, cache_used, iins_empty_postkz
+
+
+async def find_iin_scheduled(empty_iins: list[str], name: str) -> list[dict]:
+    check_iins = [{"iin": iin} for iin in empty_iins]
+    async with aiohttp.ClientSession() as session:
+        iins_nca = await mass_upd_iins_nca(session, check_iins)
+        iins_found = match_name_nca(name, iins_nca)
+    return iins_found
