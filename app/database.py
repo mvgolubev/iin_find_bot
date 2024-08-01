@@ -81,8 +81,6 @@ async def create_databases() -> None:
 
 async def write_cache(cache_level: int, cache_data: dict) -> None:
     when_created = f"{datetime.now():%Y-%m-%d %H:%M:%S}"
-    print("--- Write cache ---")
-    print(f"{cache_level=}\n{cache_data=}")
     if cache_level == 1:
         async with aiosqlite.connect(cache_db_file) as db_connection:
             cursor = await db_connection.cursor()
@@ -151,8 +149,6 @@ async def read_cache(search_date: str, search_name: str, digit_8th: int):
             if db_data:
                 cache_used = 1
                 cached_data = ujson.loads(db_data[0])
-    print("--- Read cache ---")
-    print(f"{digit_8th=}\n{cache_used=}\n{cached_data=}")
     return cache_used, cached_data
 
 
