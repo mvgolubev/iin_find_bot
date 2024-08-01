@@ -91,7 +91,7 @@ async def name_handler(message: Message, state: FSMContext) -> None:
         birth_date=data["birth_date"], name=data["name"], digit_8th=5
     )
     await db.update_log_record(
-        rowid=row_num, cache_used=cache_used, found_count=len(iins_found)
+        rowid=row_num, cache_used=cache_used, iins_found=iins_found
     )
     await state.update_data(iins_found=iins_found)
     if len(iins_found) == 0:
@@ -160,7 +160,7 @@ async def callback_deep_search(callback: CallbackQuery, state: FSMContext) -> No
             birth_date=data["birth_date"], name=data["name"], digit_8th=0
         )
         await db.update_log_record(
-            rowid=row_num, cache_used=cache_used, found_count=len(iins_found)
+            rowid=row_num, cache_used=cache_used, iins_found=iins_found
         )
         await state.update_data(iins_found=iins_found)
         if len(iins_found) == 0:
