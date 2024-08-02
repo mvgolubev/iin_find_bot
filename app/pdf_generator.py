@@ -7,13 +7,19 @@ from fpdf import FPDF
 
 def generate_pdf(iin_data: dict, birth_date: date, birth_location: str) -> bytearray:
     birth_date_str = f"{birth_date:%d.%m.%Y}"
-    if iin_data["kgd_date"]:
+    if iin_data.get("kgd_date"):
         kgd_date = date.fromisoformat(iin_data["kgd_date"])
         issue_date_str = f"{kgd_date:%d.%m.%Y}"
     else:
         issue_date_str = f"{date.today():%d.%m.%Y}"
     yy = issue_date_str[-2:]
     doc_number = f"00{yy}{str(randint(1,99999999)).zfill(8)}"
+    last_name = iin_data["last_name"].title() if iin_data.get("last_name") else " "
+    first_name = iin_data["first_name"].title() if iin_data.get("first_name") else " "
+    middle_name = (
+        iin_data["middle_name"].title() if iin_data.get("middle_name") else " "
+    )
+    
 
     font_family = "FreeSerif"
     font_regular = Path("app", "fonts", "FreeSerif.otf")
@@ -93,7 +99,7 @@ def generate_pdf(iin_data: dict, birth_date: date, birth_location: str) -> bytea
     pdf.set_font(style="b", size=15)
     pdf.cell(
         h=6,
-        text=iin_data["last_name"].title(),
+        text=last_name,
         align="L",
         border=False,
         new_x="LMARGIN",
@@ -104,7 +110,7 @@ def generate_pdf(iin_data: dict, birth_date: date, birth_location: str) -> bytea
     pdf.set_font(style="b", size=15)
     pdf.cell(
         h=6,
-        text=iin_data["first_name"].title(),
+        text=first_name,
         align="L",
         border=False,
         new_x="LMARGIN",
@@ -115,7 +121,7 @@ def generate_pdf(iin_data: dict, birth_date: date, birth_location: str) -> bytea
     pdf.set_font(style="b", size=15)
     pdf.cell(
         h=6,
-        text=iin_data["middle_name"].title(),
+        text=middle_name,
         align="L",
         border=False,
         new_x="LMARGIN",
@@ -229,7 +235,7 @@ def generate_pdf(iin_data: dict, birth_date: date, birth_location: str) -> bytea
     pdf.set_font(style="b", size=15)
     pdf.cell(
         h=6,
-        text=iin_data['last_name'].title(),
+        text=last_name,
         align="L",
         border=False,
         new_y="NEXT",
@@ -240,7 +246,7 @@ def generate_pdf(iin_data: dict, birth_date: date, birth_location: str) -> bytea
     pdf.set_font(style="b", size=15)
     pdf.cell(
         h=6,
-        text=iin_data['first_name'].title(),
+        text=first_name,
         align="L",
         border=False,
         new_y="NEXT",
@@ -251,7 +257,7 @@ def generate_pdf(iin_data: dict, birth_date: date, birth_location: str) -> bytea
     pdf.set_font(style="b", size=15)
     pdf.cell(
         h=6,
-        text=iin_data['middle_name'].title(),
+        text=middle_name,
         align="L",
         border=False,
         new_y="NEXT",
