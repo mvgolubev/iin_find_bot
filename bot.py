@@ -3,21 +3,17 @@ from os import getenv, path
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
 from dotenv import load_dotenv
 
 from app.handlers import router
-from app import database
+from app import databases as db
 
-async def main() -> None:
-    await database.create_databases()
 
+async def run_bot() -> None:
     if path.isfile(".env"):
         load_dotenv()
-        bot = Bot(
-            token=getenv("API_TOKEN"),
-            default=DefaultBotProperties(parse_mode=ParseMode.HTML),
-        )
+        default_properties = DefaultBotProperties(parse_mode="HTML")
+        bot = Bot(token=getenv("API_TOKEN"), default=default_properties)
         dp = Dispatcher()
         dp.include_router(router)
         await bot.delete_webhook(drop_pending_updates=True)
@@ -31,6 +27,17 @@ async def main() -> None:
             "где telegram_bot_token - это токен для вашего телеграм-бота, полученный от @BotFather"
         )
 
+async def main():
+    await db.create_databases()
+    async_tasks = [
+        asyncio.create_task(run_bot()),
+        asyncio.create_task(db.cleanup_log_db()),
+        asyncio.create_task(db.cleanup_cache_level1()),
+        asyncio.create_task(db.cleanup_cache_level2()),
+    ]
+    return await asyncio.gather(*async_tasks)
+
 
 if __name__ == "__main__":
     asyncio.run(main())
+

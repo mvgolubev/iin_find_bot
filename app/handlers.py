@@ -14,7 +14,7 @@ from aiogram.types import (
     BufferedInputFile,
 )
 
-from app import constants, utils, pdf_generator, database as db, keyboards as kb
+from app import constants, utils, pdf_generator, databases as db, keyboards as kb
 
 
 class BotStatus(StatesGroup):
@@ -87,7 +87,7 @@ async def name_handler(message: Message, state: FSMContext) -> None:
         "auto": 0,
     }
     row_num = await db.add_log_record(tg_user, search)
-    iins_found, cache_used, _ = await utils.find_iin(
+    cache_used, _, iins_found = await utils.find_iin(
         birth_date=data["birth_date"], name=data["name"], digit_8th=5
     )
     await db.update_log_record(
@@ -97,7 +97,10 @@ async def name_handler(message: Message, state: FSMContext) -> None:
     if len(iins_found) == 0:
         text = f"{constants.NOT_FOUND_TEXT}{constants.DEEP_SEARCH_TEXT}"
     else:
-        text = f"✅ <b>Найдено: {len(iins_found)} ИИН</b>\n"
+        text = f"✅ <b>Найдено: {len(iins_found)} ИИН</b>"
+        if cache_used > 0:
+            text += " (из кэша)"
+        text += "\n"
         if len(iins_found) > 1:
             text += "Ваш ИИН только один из них (который с вашими ФИО).\n"
         text += "\n"
@@ -156,7 +159,7 @@ async def callback_deep_search(callback: CallbackQuery, state: FSMContext) -> No
             "auto": 0,
         }
         row_num = await db.add_log_record(tg_user, search)
-        iins_found, cache_used, _ = await utils.find_iin(
+        cache_used, _, iins_found = await utils.find_iin(
             birth_date=data["birth_date"], name=data["name"], digit_8th=0
         )
         await db.update_log_record(
@@ -166,7 +169,9 @@ async def callback_deep_search(callback: CallbackQuery, state: FSMContext) -> No
         if len(iins_found) == 0:
             text = f"{constants.NOT_FOUND_TEXT}"
         else:
-            text = f"✅ <b>Найдено: {len(iins_found)} ИИН</b>\n"
+            text = f"✅ <b>Найдено: {len(iins_found)} ИИН</b>"
+            if cache_used > 0:
+                text += " (из кэша)"
             if len(iins_found) > 1:
                 text += "Ваш ИИН только один из них (который с вашими ФИО).\n"
             text += "\n"
