@@ -33,8 +33,29 @@ router = Router()
 @router.message(CommandStart())
 async def start_handler(message: Message, state: FSMContext) -> None:
     await state.clear()
-    text = f"🔎 <b>Поиск ИИН</b>\n\n{constants.DATE_REQUEST}"
-    await message.answer(text=text)
+    searches_count, next_possible_time_msk = await db.get_log_by_tgid(
+        message.chat.id
+    )
+    if searches_count >= 10:
+        await message.answer(
+            text=(
+                "⛔ <b>Поиск временно ограничен</b>\n\nВы достигли лимита: "
+                "10 поисковых запросов за последние 7 дней.\nСледующий поиск "
+                f"будет возможен после <b>{next_possible_time_msk} (MSK)</b>"
+            )
+        )
+        return None
+    elif searches_count in [7, 8, 9]:
+        await message.answer(
+            text=(
+                "⚠️ <b>Вы близки к достижению лимита</b>\n\nЗа последние 7 дней "
+                f"вы сделали <b>{searches_count}</b> поисковых запросов (лимит: "
+                "10 запросов за последние 7 дней).\n\nПо возможности используйте "
+                'авто-поиск по кнопке <b>"Авто-поиск"</b> в результатах ручного поиска.\n'
+                "Авто-поиск не расходует лимит на количество ручных поисковых запросов."
+            )
+        )
+    await message.answer(text=f"🔎 <b>Поиск ИИН</b>\n\n{constants.DATE_REQUEST}")
     await state.set_state(BotStatus.input_birth_date)
 
 
@@ -64,14 +85,15 @@ async def name_handler(message: Message, state: FSMContext) -> None:
     name = message.text.strip(" .").casefold()
     await state.update_data(name=name)
     data = await state.get_data()
-    text = (
-        "🤖🔎 Начал поиск ИИН со следующими параметрами:\n\n"
-        f"<b>◦ ИИН:</b> {data['birth_date']:%y%m%d}05xxxx\n"
-        f"<b>◦ Имя:</b> {str.title(data['name'])}\n"
-        f"<b>◦ Дата рождения:</b> {data['birth_date']}\n\n"
-        "Ждите завершения поиска (несколько секунд)... ⏱️"
+    await message.answer(
+        text=(
+            "🤖🔎 Начал поиск ИИН со следующими параметрами:\n\n"
+            f"<b>◦ ИИН:</b> {data['birth_date']:%y%m%d}05xxxx\n"
+            f"<b>◦ Имя:</b> {str.title(data['name'])}\n"
+            f"<b>◦ Дата рождения:</b> {data['birth_date']}\n\n"
+            "Ждите завершения поиска (несколько секунд)... ⏱️"
+        )
     )
-    await message.answer(text=text)
     await message.chat.do(action="typing")
     tg_first_name = message.from_user.first_name
     tg_last_name = message.from_user.last_name
@@ -135,16 +157,16 @@ async def callback_deep_search(callback: CallbackQuery, state: FSMContext) -> No
     if not data.get("name"):
         await default_handler(callback.message)
     else:
-        text = (
-            "🤖🔎 Дополнительно ищу (среди более старых ИИН):\n\n"
-            f"<b>◦ ИИН:</b> {data['birth_date']:%y%m%d}00xxxx\n"
-            f"<b>◦ Имя:</b> {str.title(data['name'])}\n"
-            f"<b>◦ Дата рождения</b>: {data['birth_date']}\n\n"
-            "Ждите завершения поиска (несколько секунд)... ⏱️"
+        await callback.message.answer(
+            text=(
+                "🤖🔎 Дополнительно ищу (среди более старых ИИН):\n\n"
+                f"<b>◦ ИИН:</b> {data['birth_date']:%y%m%d}00xxxx\n"
+                f"<b>◦ Имя:</b> {str.title(data['name'])}\n"
+                f"<b>◦ Дата рождения</b>: {data['birth_date']}\n\n"
+                "Ждите завершения поиска (несколько секунд)... ⏱️"
+            )
         )
-        await callback.message.answer(text=text)
         await callback.message.chat.do(action="typing")
-
         tg_first_name = callback.from_user.first_name
         tg_last_name = callback.from_user.last_name
         tg_user = {
@@ -170,7 +192,7 @@ async def callback_deep_search(callback: CallbackQuery, state: FSMContext) -> No
             text = f"{constants.NOT_FOUND_TEXT}"
         else:
             text = f"✅ <b>Найдено: {len(iins_found)} ИИН</b>"
-            if cache_used > 0:
+            if cache_used == 2:
                 text += " (из кэша)"
             if len(iins_found) > 1:
                 text += "Ваш ИИН только один из них (который с вашими ФИО).\n"
@@ -224,14 +246,15 @@ async def callback_info(callback: CallbackQuery) -> None:
 @router.callback_query(F.data == "cb_donate")
 async def callback_donate(callback: CallbackQuery) -> None:
     await callback.answer(text="")
-    text = (
-        "💳 <b>Donate</b>\n\n"
-        "Данный бот - это некоммерческий проект.\n"
-        "Если бот вам помог, вы можете отблагодарить разработчика "
-        f"<a href='{constants.DONATE_URL}'>пожертвованием</a>"
-    )
     await callback.message.answer(
-        text=text, disable_web_page_preview=True, reply_markup=kb.donate
+        text=(
+            "💳 <b>Donate</b>\n\n"
+            "Данный бот - это некоммерческий проект.\n"
+            "Если бот вам помог, вы можете отблагодарить разработчика "
+            f"<a href='{constants.DONATE_URL}'>пожертвованием</a>"
+        ),
+        disable_web_page_preview=True,
+        reply_markup=kb.donate,
     )
 
 

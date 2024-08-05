@@ -6,6 +6,7 @@ import ujson
 Path("app", "data").mkdir(exist_ok=True)
 cache_db_file = Path("app", "data", "cache.db")
 search_log_db_file = Path("app", "data", "search_log.db")
+auto_search_db_file = Path("app", "data", "auto_search.db")
 access_db_file = Path("app", "data", "access.db")
 
 
@@ -47,6 +48,20 @@ async def create_databases() -> None:
                     cache_used INTEGER,
                     found_count INTEGER,
                     found_iins TEXT
+                )"""
+            )
+    if not auto_search_db_file.exists():  # auto search database
+        async with aiosqlite.connect(auto_search_db_file) as db_connection:
+            cursor = await db_connection.cursor()
+            await cursor.execute(
+                """CREATE TABLE IF NOT EXISTS search_tasks (
+                    when_created TEXT NOT NULL,
+                    tg_id INTEGER NOT NULL,
+                    tg_nick TEXT,
+                    tg_name TEXT,
+                    search_date TEXT NOT NULL,
+                    search_name TEXT NOT NULL,
+                    when_changed TEXT
                 )"""
             )
     if not access_db_file.exists():  # access database
@@ -174,7 +189,7 @@ async def update_log_record(
         cursor = await db_connection.cursor()
         await cursor.execute(
             """UPDATE searches SET cache_used = ?, found_count = ?, found_iins = ?
-            WHERE rowid == ?""",
+                WHERE rowid == ?""",
             (
                 cache_used,
                 len(iins_found),
@@ -216,3 +231,21 @@ async def cleanup_cache_level2() -> None:
             )
             await db_connection.commit()
         await asyncio.sleep(60)
+
+
+async def get_log_by_tgid(tg_id: int) -> int:
+    async with aiosqlite.connect(search_log_db_file) as db_connection:
+        cursor = await db_connection.cursor()
+        await cursor.execute(
+            """SELECT COUNT(*), datetime(date_time, '+7 days', '+3 hours')
+                FROM searches
+                WHERE date_time > datetime('now', '-7 days')
+                AND tg_id == ?
+                AND digit_8th == 5
+                AND auto_search == 0
+                AND cache_used < 2
+                AND found_count NOT NULL
+            """,
+            (tg_id,),
+        )
+        return await cursor.fetchone()
