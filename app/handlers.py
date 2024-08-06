@@ -33,9 +33,7 @@ router = Router()
 @router.message(CommandStart())
 async def start_handler(message: Message, state: FSMContext) -> None:
     await state.clear()
-    searches_count, next_possible_time_msk = await db.get_log_by_tgid(
-        message.chat.id
-    )
+    searches_count, next_possible_time_msk = await db.get_log_by_tgid(message.chat.id)
     if searches_count >= 10:
         await message.answer(
             text=(
@@ -109,13 +107,13 @@ async def name_handler(message: Message, state: FSMContext) -> None:
         "auto": 0,
     }
     row_num = await db.add_log_record(tg_user, search)
-    cache_used, _, iins_found = await utils.find_iin(
+    cache_used, iins_found, iins_auto_search = await utils.find_iin(
         birth_date=data["birth_date"], name=data["name"], digit_8th=5
     )
     await db.update_log_record(
         rowid=row_num, cache_used=cache_used, iins_found=iins_found
     )
-    await state.update_data(iins_found=iins_found)
+    await state.update_data(iins_found=iins_found, iins_auto_search=iins_auto_search)
     if len(iins_found) == 0:
         text = f"{constants.NOT_FOUND_TEXT}{constants.DEEP_SEARCH_TEXT}"
     else:
@@ -181,7 +179,7 @@ async def callback_deep_search(callback: CallbackQuery, state: FSMContext) -> No
             "auto": 0,
         }
         row_num = await db.add_log_record(tg_user, search)
-        cache_used, _, iins_found = await utils.find_iin(
+        cache_used, iins_found, _ = await utils.find_iin(
             birth_date=data["birth_date"], name=data["name"], digit_8th=0
         )
         await db.update_log_record(
@@ -211,6 +209,40 @@ async def callback_deep_search(callback: CallbackQuery, state: FSMContext) -> No
                 'Сказать спасибо можно по кнопке <b>"Donate"</b>'
             )
         await callback.message.answer(text=text, reply_markup=kb.deep_search_result)
+
+
+@router.callback_query(F.data == "cb_auto_search")
+async def callback_auto_search(callback: CallbackQuery, state: FSMContext) -> None:
+    await callback.answer(text="")
+    user_tasks = await db.get_tasks_by_tgid(callback.from_user.id)
+    data = await state.get_data()
+    text = "🔁 <b>Авто-поиск</b>\n\n"
+    if len(user_tasks) == 0:
+        if not data.get("name"):
+            await default_handler(callback.message)
+        else: 
+            text += (
+                "⚪ Авто-поиск ИИН сейчас отключен.\n\nМожно включить "
+                "авто-поиск с параметрами последнего ручного поиска ИИН:\n"
+                f"<b>• Дата рождения:</b> {data['birth_date']:%Y-%m-%d}\n"
+                f"<b>• Имя:</b> {data['name'].title()}\n"
+            )
+            if data["iins_found"]:
+                text += ("<blockquote>⚠️ ВАЖНО: ИИН, найденные при ручном поиске, "
+                "будут исключены из результатов авто-поиска!</blockquote>")
+            reply_markup = kb.auto_search_is_off
+    if len(user_tasks) == 1:
+        text += (
+            "🟢 Сейчас для вас включен авто-поиск ИИН со следующими параметрами:\n"
+            f"<b>• Дата рождения:</b> {user_tasks[0]['search_date']}\n"
+            f"<b>• Имя:</b> {user_tasks[0]['search_name']}\n"
+            f"<b>• Создан:</b> {user_tasks[0]['when_created']}\n"
+            f"<b>• Пред. поиск:</b> {user_tasks[0]['when_changed']}\n"
+            "\nЖдите. Когда новый ИИН с этими параметрами будет автоматически "
+            "найден, бот пришлёт вам сообщение."
+        )
+        reply_markup = kb.auto_search_is_on
+    await callback.message.answer(text=text, reply_markup=reply_markup)
 
 
 @router.callback_query(F.data == "cb_info")

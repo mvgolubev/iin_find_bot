@@ -1,5 +1,4 @@
 import asyncio
-from copy import deepcopy
 from datetime import date
 
 import aiohttp
@@ -75,7 +74,7 @@ def empty_name_postkz(iins_postkz: list[dict]) -> list[dict]:
     names_list = [iin["name"] for iin in iins_postkz]
     if names_list.count(None) == len(names_list):
         last_est_index = 4
-    else:     
+    else:
         last_name_value = [name for name in names_list if name][-1]
         names_list.reverse()
         last_est_index = min(
@@ -183,7 +182,9 @@ def get_full_name(iin_data: dict) -> str:
     return f"{last} {first} {middle}".strip().title()
 
 
-async def find_iin(birth_date: date, name: str, digit_8th: int = 5) -> tuple[int, list[dict], list[dict]]:
+async def find_iin(
+    birth_date: date, name: str, digit_8th: int = 5
+) -> tuple[int, list[dict], list[dict]]:
     cache_used, cached_data = await db.read_cache(birth_date, name, digit_8th)
     async with aiohttp.ClientSession() as session:
         if cache_used == 2:
@@ -193,6 +194,7 @@ async def find_iin(birth_date: date, name: str, digit_8th: int = 5) -> tuple[int
         elif cache_used == 0:
             iins_possible = generate_iins(birth_date, digit_8th=digit_8th, quantity=300)
             iins_postkz = await mass_upd_iins_postkz(session, iins_possible)
+            
             data_to_cache = {
                 "search_date": birth_date,
                 "digit_8th": digit_8th,
@@ -201,19 +203,23 @@ async def find_iin(birth_date: date, name: str, digit_8th: int = 5) -> tuple[int
             await db.write_cache(cache_level=1, cache_data=data_to_cache)
         iins_matched_postkz = match_name_postkz(name, iins_postkz)
         iins_empty_postkz = empty_name_postkz(iins_postkz)
-        iins_empty_cache = deepcopy(iins_empty_postkz)
         iins_possible_postkz = iins_matched_postkz + iins_empty_postkz
         iins_nca = await mass_upd_iins_nca(session, iins_possible_postkz)
         iins_found = match_name_nca(name, iins_nca)
+        iins_auto_search = [
+            {"iin": iin["iin"]}
+            for iin in iins_empty_postkz
+            if iin["iin"] not in [iin["iin"] for iin in iins_found]
+        ]
         data_to_cache = {
             "search_date": birth_date,
             "search_name": name,
             "digit_8th": digit_8th,
-            "iins_empty_postkz": iins_empty_cache,
             "iins_found": iins_found,
+            "iins_auto_search": iins_auto_search,
         }
         await db.write_cache(cache_level=2, cache_data=data_to_cache)
-    return cache_used, iins_empty_postkz, iins_found
+    return cache_used, iins_found, iins_auto_search
 
 
 async def find_iin_scheduled(empty_iins: list[dict], name: str) -> list[dict]:
