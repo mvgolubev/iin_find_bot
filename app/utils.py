@@ -1,5 +1,5 @@
 import asyncio
-from datetime import date
+from datetime import date, datetime, timedelta
 
 import aiohttp
 from bs4 import BeautifulSoup
@@ -194,7 +194,7 @@ async def find_iin(
         elif cache_used == 0:
             iins_possible = generate_iins(birth_date, digit_8th=digit_8th, quantity=300)
             iins_postkz = await mass_upd_iins_postkz(session, iins_possible)
-            
+
             data_to_cache = {
                 "search_date": birth_date,
                 "digit_8th": digit_8th,
@@ -222,8 +222,13 @@ async def find_iin(
     return cache_used, iins_found, iins_auto_search
 
 
-async def find_iin_scheduled(empty_iins: list[dict], name: str) -> list[dict]:
+async def find_iin_auto(iins_auto_search: list[dict], name: str) -> list[dict]:
     async with aiohttp.ClientSession() as session:
-        iins_nca = await mass_upd_iins_nca(session, empty_iins)
+        iins_nca = await mass_upd_iins_nca(session, iins_auto_search)
         iins_found = match_name_nca(name, iins_nca)
     return iins_found
+
+
+def utc_to_msk(utc_datetime: str) -> str:
+    msk_datetime = datetime.fromisoformat(utc_datetime) + timedelta(hours=3)
+    return f"{msk_datetime:%Y-%m-%d %H:%M} (MSK)"

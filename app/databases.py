@@ -3,6 +3,8 @@ from pathlib import Path
 import aiosqlite
 import ujson
 
+from app import utils, handlers
+
 Path("app", "data").mkdir(exist_ok=True)
 cache_db_file = Path("app", "data", "cache.db")
 search_log_db_file = Path("app", "data", "search_log.db")
@@ -61,7 +63,7 @@ async def create_databases() -> None:
                     tg_name TEXT,
                     search_date TEXT NOT NULL,
                     search_name TEXT NOT NULL,
-                    auto_search_iins TEXT,
+                    iins_auto_search TEXT,
                     when_changed TEXT
                 )"""
             )
@@ -274,21 +276,44 @@ async def add_auto_search_task(tg_user: dict, search: dict) -> None:
                 tg_name,
                 search_date,
                 search_name,
+                iins_auto_search,
                 when_changed
-            ) VALUES (datetime("now"), ?, ?, ?, ?, ?, datetime("now"))""",
+            ) VALUES (datetime("now"), ?, ?, ?, ?, ?, ?, datetime("now"))""",
             (
                 tg_user["id"],
                 tg_user["nick"],
                 tg_user["name"],
-                search["date"],
+                f"{search["date"]:%Y-%m-%d}",
                 search["name"],
+                ujson.dumps(search["iins_auto_search"], ensure_ascii=False),
             ),
         )
         await db_connection.commit()
 
 
-async def remove_auto_search_task(tg_id: int) -> None:
-    pass
+async def update_auto_search_task(rowid: int) -> None:
+    async with aiosqlite.connect(auto_search_db_file) as db_connection:
+        cursor = await db_connection.cursor()
+        await cursor.execute(
+            """UPDATE search_tasks SET when_changed == datetime('now')
+                WHERE rowid == ?""",
+            (rowid,),
+        )
+        await db_connection.commit()
+
+
+async def remove_search_task_by_rowid(rowid: int) -> None:
+    async with aiosqlite.connect(auto_search_db_file) as db_connection:
+        cursor = await db_connection.cursor()
+        await cursor.execute("DELETE FROM search_tasks WHERE rowid == ?", (rowid,))
+        await db_connection.commit()
+
+
+async def remove_user_search_tasks(tg_id: int) -> None:
+    async with aiosqlite.connect(auto_search_db_file) as db_connection:
+        cursor = await db_connection.cursor()
+        await cursor.execute("DELETE FROM search_tasks WHERE tg_id == ?", (tg_id,))
+        await db_connection.commit()
 
 
 async def get_tasks_by_tgid(tg_id: int) -> list[dict]:
@@ -310,30 +335,55 @@ async def get_tasks_by_tgid(tg_id: int) -> list[dict]:
         return [dict(zip(keys, row)) for row in matching_rows]
 
 
-async def get_tasks_to_process() -> list[dict]:
+async def auto_search_cycle() -> None:
+    while True:
+        auto_search_tasks = await get_tasks_by_time()
+        for task in auto_search_tasks:
+            tg_user = {
+                "id": task["tg_id"],
+                "nick": task["tg_nick"],
+                "name": task["tg_name"],
+            }
+            search = {
+                "date": task["search_date"],
+                "name": task["search_name"],
+                "digit_8th": 5,
+                "auto": 1,
+            }
+            log_row_num = await add_log_record(tg_user, search)
+            iins_found = await utils.find_iin_auto(
+                iins_auto_search=task["iins_auto_search"], name=task["search_name"]
+            )
+            await update_log_record(
+                rowid=log_row_num, cache_used=0, iins_found=iins_found
+            )
+            if iins_found:
+                await handlers.send_auto_search_result(tg_id=task["tg_id"], iins_found=iins_found)
+                await remove_search_task_by_rowid(rowid=task["rowid"])
+            else:
+                await update_auto_search_task(rowid=task["rowid"])
+        await asyncio.sleep(60)
+
+
+async def get_tasks_by_time() -> list[dict]:
     async with aiosqlite.connect(auto_search_db_file) as db_connection:
         cursor = await db_connection.cursor()
         await cursor.execute(
-            """SELECT rowid, tg_id, search_name, auto_search_iins
+            """SELECT rowid, tg_id, tg_nick, tg_name, search_date, search_name, iins_auto_search
                 FROM search_tasks WHERE when_changed < datetime('now', '-4 hours')
             """
         )
-        matching_rows = await cursor.fetchall()
-        tasks = [
+        matching_rows = await cursor.fetchmany(3)
+        auto_search_tasks = [
             {
                 "rowid": row[0],
                 "tg_id": row[1],
-                "search_name": row[2],
-                "auto_search_iins": ujson.loads(row[3]),
+                "tg_nick": row[2],
+                "tg_name": row[3],
+                "search_date": row[4],
+                "search_name": row[5],
+                "iins_auto_search": ujson.loads(row[6]),
             }
             for row in matching_rows
         ]
-        return tasks
-
-async def auto_search() -> None:
-    pass
-
-
-if __name__ == "__main__":
-    # asyncio.run(get_tasks_by_tgid(2222222222))
-    asyncio.run(get_tasks_to_process())
+        return auto_search_tasks

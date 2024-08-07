@@ -20,6 +20,8 @@ from app import constants, utils, pdf_generator, databases as db, keyboards as k
 class BotStatus(StatesGroup):
     input_birth_date = State()
     input_name = State()
+    search_result = State()
+    config_auto_search = State()
     choose_iin = State()
     country_request = State()
     input_country = State()
@@ -106,12 +108,12 @@ async def name_handler(message: Message, state: FSMContext) -> None:
         "digit_8th": 5,
         "auto": 0,
     }
-    row_num = await db.add_log_record(tg_user, search)
+    log_row_num = await db.add_log_record(tg_user, search)
     cache_used, iins_found, iins_auto_search = await utils.find_iin(
         birth_date=data["birth_date"], name=data["name"], digit_8th=5
     )
     await db.update_log_record(
-        rowid=row_num, cache_used=cache_used, iins_found=iins_found
+        rowid=log_row_num, cache_used=cache_used, iins_found=iins_found
     )
     await state.update_data(iins_found=iins_found, iins_auto_search=iins_auto_search)
     if len(iins_found) == 0:
@@ -140,6 +142,7 @@ async def name_handler(message: Message, state: FSMContext) -> None:
             f"{constants.DEEP_SEARCH_TEXT}"
         )
     await message.answer(text=text, reply_markup=kb.standard_search_result)
+    await state.set_state(BotStatus.search_result)
 
 
 @router.callback_query(F.data == "cb_standard_search")
@@ -209,40 +212,73 @@ async def callback_deep_search(callback: CallbackQuery, state: FSMContext) -> No
                 'Сказать спасибо можно по кнопке <b>"Donate"</b>'
             )
         await callback.message.answer(text=text, reply_markup=kb.deep_search_result)
+        await state.set_state(BotStatus.search_result)
 
 
-@router.callback_query(F.data == "cb_auto_search")
+@router.callback_query(F.data == "cb_auto_search", BotStatus.search_result)
+@router.callback_query(F.data == "cb_start_task", BotStatus.config_auto_search)
+@router.callback_query(F.data == "cb_stop_task", BotStatus.config_auto_search)
 async def callback_auto_search(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer(text="")
-    user_tasks = await db.get_tasks_by_tgid(callback.from_user.id)
+    if callback.data == "cb_auto_search":
+        text, reply_markup = await set_auto_search_msg(callback.from_user.id, state)
+        await callback.message.answer(text=text, reply_markup=reply_markup)
+        await state.set_state(BotStatus.config_auto_search)
+    elif callback.data == "cb_start_task":
+        tg_first_name = callback.from_user.first_name
+        tg_last_name = callback.from_user.last_name
+        tg_user = {
+            "id": callback.from_user.id,
+            "nick": callback.from_user.username,
+            "name": f"{tg_first_name}{' '+tg_last_name if tg_last_name else ''}",
+        }
+        data = await state.get_data()
+        search = {
+            "date": data["birth_date"],
+            "name": data["name"],
+            "iins_auto_search": data["iins_auto_search"],
+        }
+        await db.add_auto_search_task(tg_user=tg_user, search=search)
+        text, reply_markup = await set_auto_search_msg(callback.from_user.id, state)
+        await callback.message.edit_text(text=text, reply_markup=reply_markup)
+    elif callback.data == "cb_stop_task":
+        await db.remove_user_search_tasks(callback.from_user.id)
+        text, reply_markup = await set_auto_search_msg(callback.from_user.id, state)
+        await callback.message.edit_text(text=text, reply_markup=reply_markup)
+
+
+async def set_auto_search_msg(tg_user_id: int, state: FSMContext):
+    user_tasks = await db.get_tasks_by_tgid(tg_user_id)
     data = await state.get_data()
-    text = "🔁 <b>Авто-поиск</b>\n\n"
+    text = "🔁 <b>Авто-поиск:</b> "
     if len(user_tasks) == 0:
-        if not data.get("name"):
-            await default_handler(callback.message)
-        else: 
+        text += (
+            "⚪ <b>(отключен)</b>\n\nМожно включить авто-поиск с параметрами "
+            "последнего ручного поиска:\n\n"
+            f"<b>◦ Дата рождения:</b> {data['birth_date']:%Y-%m-%d}\n"
+            f"<b>◦ Имя:</b> {data['name'].title()}"
+        )
+        if data["iins_found"]:
             text += (
-                "⚪ Авто-поиск ИИН сейчас отключен.\n\nМожно включить "
-                "авто-поиск с параметрами последнего ручного поиска ИИН:\n"
-                f"<b>• Дата рождения:</b> {data['birth_date']:%Y-%m-%d}\n"
-                f"<b>• Имя:</b> {data['name'].title()}\n"
+                "\n\n<blockquote>⚠️ ВАЖНО: ИИН, найденные при ручном поиске, "
+                "будут исключены из результатов авто-поиска!</blockquote>"
             )
-            if data["iins_found"]:
-                text += ("<blockquote>⚠️ ВАЖНО: ИИН, найденные при ручном поиске, "
-                "будут исключены из результатов авто-поиска!</blockquote>")
-            reply_markup = kb.auto_search_is_off
+        reply_markup = kb.auto_search_is_off
     if len(user_tasks) == 1:
         text += (
-            "🟢 Сейчас для вас включен авто-поиск ИИН со следующими параметрами:\n"
-            f"<b>• Дата рождения:</b> {user_tasks[0]['search_date']}\n"
-            f"<b>• Имя:</b> {user_tasks[0]['search_name']}\n"
-            f"<b>• Создан:</b> {user_tasks[0]['when_created']}\n"
-            f"<b>• Пред. поиск:</b> {user_tasks[0]['when_changed']}\n"
-            "\nЖдите. Когда новый ИИН с этими параметрами будет автоматически "
+            "🟢 <b>(включен)</b>\n\nАвто-поиск ИИН включен со следующими параметрами:\n\n"
+            f"<b>◦ Дата рождения:</b> {user_tasks[0]['search_date']}\n"
+            f"<b>◦ Имя:</b> {user_tasks[0]['search_name'].title()}\n"
+            f"<b>◦ Включен:</b> {utils.utc_to_msk(user_tasks[0]['when_created'])}\n"
+        )
+        if user_tasks[0]["when_changed"]:
+            text += f"<b>◦ Пред. поиск:</b> {utils.utc_to_msk(user_tasks[0]['when_changed'])}\n"
+        text += (
+            "\nЖдите... Когда новый ИИН с этими параметрами будет автоматически "
             "найден, бот пришлёт вам сообщение."
         )
         reply_markup = kb.auto_search_is_on
-    await callback.message.answer(text=text, reply_markup=reply_markup)
+    return text, reply_markup
 
 
 @router.callback_query(F.data == "cb_info")
@@ -444,3 +480,6 @@ async def default_handler(message: Message) -> None:
         "Чтобы начать новый поиск ИИН, отправьте: /start"
     )
     await message.answer(text=text)
+
+
+
