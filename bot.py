@@ -6,7 +6,7 @@ from aiogram.client.default import DefaultBotProperties
 from dotenv import load_dotenv
 
 from app.handlers import router
-from app import databases as db
+from app import databases as db, keyboards as kb, auto_search
 
 if path.isfile(".env"):
     load_dotenv()
@@ -29,12 +29,17 @@ async def run_dispatcher() -> None:
     await dp.start_polling(bot)
 
 
-async def send_auto_search_result() -> None:
-    await bot.send_message(chat_id=144651841, text="auto search result")
+async def send_auto_search_result(user_id: int, text: str) -> None:
+    await bot.send_sticker(
+        chat_id=user_id,
+        sticker="CAACAgIAAxkBAAIdWWa1K79rFVg3jNUczO4Cdg0Ug9LkAAJHAgACRxVoCeT3B7UIQsMeNQQ",
+    )
+    await bot.send_message(
+        chat_id=user_id, text=text, parse_mode="HTML", reply_markup=kb.info
+    )
 
 
 async def main():
-    await send_auto_search_result()
     await db.create_databases()
     async_tasks = [
         asyncio.create_task(run_dispatcher()),
@@ -42,7 +47,7 @@ async def main():
         asyncio.create_task(db.cleanup_cache_level1()),
         asyncio.create_task(db.cleanup_cache_level2()),
         asyncio.create_task(db.cleanup_auto_search_db()),
-        asyncio.create_task(db.auto_search_cycle()),
+        asyncio.create_task(auto_search.auto_search_cycle()),
     ]
     return await asyncio.gather(*async_tasks)
 
