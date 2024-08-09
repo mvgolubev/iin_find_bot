@@ -201,7 +201,7 @@ async def update_log_record(
         await db_connection.commit()
 
 
-async def cleanup_log_db() -> None:
+async def cleanup_log_db(repeat_minutes: int) -> None:
     while True:
         async with aiosqlite.connect(search_log_db_file) as db_connection:
             cursor = await db_connection.cursor()
@@ -209,10 +209,10 @@ async def cleanup_log_db() -> None:
                 "DELETE FROM searches WHERE date_time < datetime('now', '-90 days')"
             )
             await db_connection.commit()
-        await asyncio.sleep(60 * 60)
+        await asyncio.sleep(repeat_minutes * 60)
 
 
-async def cleanup_cache_level1() -> None:
+async def cleanup_cache_level1(repeat_minutes: int) -> None:
     while True:
         async with aiosqlite.connect(cache_db_file) as db_connection:
             cursor = await db_connection.cursor()
@@ -220,10 +220,10 @@ async def cleanup_cache_level1() -> None:
                 "DELETE FROM level_1 WHERE when_created < datetime('now', '-1 day')"
             )
             await db_connection.commit()
-        await asyncio.sleep(10 * 60)
+        await asyncio.sleep(repeat_minutes * 60)
 
 
-async def cleanup_cache_level2() -> None:
+async def cleanup_cache_level2(repeat_minutes: int) -> None:
     while True:
         async with aiosqlite.connect(cache_db_file) as db_connection:
             cursor = await db_connection.cursor()
@@ -231,10 +231,10 @@ async def cleanup_cache_level2() -> None:
                 "DELETE FROM level_2 WHERE when_created < datetime('now', '-1 hour')"
             )
             await db_connection.commit()
-        await asyncio.sleep(60)
+        await asyncio.sleep(repeat_minutes * 60)
 
 
-async def cleanup_auto_search_db() -> None:
+async def cleanup_auto_search_db(repeat_minutes: int) -> None:
     while True:
         async with aiosqlite.connect(auto_search_db_file) as db_connection:
             cursor = await db_connection.cursor()
@@ -242,7 +242,7 @@ async def cleanup_auto_search_db() -> None:
                 "DELETE FROM search_tasks WHERE when_created < datetime('now', '-30 days')"
             )
             await db_connection.commit()
-        await asyncio.sleep(60 * 60)
+        await asyncio.sleep(repeat_minutes * 60)
 
 
 async def get_log_by_tgid(tg_id: int) -> int:

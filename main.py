@@ -17,10 +17,10 @@ async def main():
     await db.create_databases()
     async_tasks = [
         asyncio.create_task(run_dispatcher()),
-        asyncio.create_task(db.cleanup_log_db()),
-        asyncio.create_task(db.cleanup_cache_level1()),
-        asyncio.create_task(db.cleanup_cache_level2()),
-        asyncio.create_task(db.cleanup_auto_search_db()),
+        asyncio.create_task(db.cleanup_log_db(repeat_minutes=60)),
+        asyncio.create_task(db.cleanup_auto_search_db(repeat_minutes=60)),
+        asyncio.create_task(db.cleanup_cache_level1(repeat_minutes=10)),
+        asyncio.create_task(db.cleanup_cache_level2(repeat_minutes=1)),
         asyncio.create_task(auto_search.search_cycle(repeat_minutes=1)),
     ]
     return await asyncio.gather(*async_tasks)
