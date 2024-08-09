@@ -225,8 +225,7 @@ async def find_iin(
 async def find_iin_auto(iins_auto_search: list[dict], name: str) -> list[dict]:
     async with aiohttp.ClientSession() as session:
         iins_nca = await mass_upd_iins_nca(session, iins_auto_search)
-        iins_found = match_name_nca(name, iins_nca)
-    return iins_found
+        return match_name_nca(name, iins_nca)
 
 
 def utc_to_msk(utc_datetime: str) -> str:

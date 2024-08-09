@@ -3,8 +3,6 @@ from pathlib import Path
 import aiosqlite
 import ujson
 
-from app import utils, handlers
-
 Path("app", "data").mkdir(exist_ok=True)
 cache_db_file = Path("app", "data", "cache.db")
 search_log_db_file = Path("app", "data", "search_log.db")
@@ -333,36 +331,6 @@ async def get_tasks_by_tgid(tg_id: int) -> list[dict]:
             "when_changed",
         )
         return [dict(zip(keys, row)) for row in matching_rows]
-
-
-async def auto_search_cycle() -> None:
-    while True:
-        auto_search_tasks = await get_tasks_by_time()
-        for task in auto_search_tasks:
-            tg_user = {
-                "id": task["tg_id"],
-                "nick": task["tg_nick"],
-                "name": task["tg_name"],
-            }
-            search = {
-                "date": task["search_date"],
-                "name": task["search_name"],
-                "digit_8th": 5,
-                "auto": 1,
-            }
-            log_row_num = await add_log_record(tg_user, search)
-            iins_found = await utils.find_iin_auto(
-                iins_auto_search=task["iins_auto_search"], name=task["search_name"]
-            )
-            await update_log_record(
-                rowid=log_row_num, cache_used=0, iins_found=iins_found
-            )
-            if iins_found:
-                await handlers.send_auto_search_result(tg_id=task["tg_id"], iins_found=iins_found)
-                await remove_search_task_by_rowid(rowid=task["rowid"])
-            else:
-                await update_auto_search_task(rowid=task["rowid"])
-        await asyncio.sleep(60)
 
 
 async def get_tasks_by_time() -> list[dict]:
