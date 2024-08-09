@@ -141,7 +141,11 @@ async def name_handler(message: Message, state: FSMContext) -> None:
             "🤷‍♂️ <b>Среди найденных ИИН нет вашего?</b>\n"
             f"{constants.DEEP_SEARCH_TEXT}"
         )
-    await message.answer(text=text, reply_markup=kb.standard_search_result)
+    tasks_count = len(await db.get_tasks_by_tgid(message.from_user.id))
+    await message.answer(
+        text=text,
+        reply_markup=kb.search_result(deep_search=False, auto_tasks=tasks_count),
+    )
     await state.set_state(BotStatus.search_result)
 
 
@@ -211,7 +215,11 @@ async def callback_deep_search(callback: CallbackQuery, state: FSMContext) -> No
                 "<i>(ткните в значение ИИН, чтобы скопировать его в буфер)</i>\n\n"
                 'Сказать спасибо можно по кнопке <b>"Donate"</b>'
             )
-        await callback.message.answer(text=text, reply_markup=kb.deep_search_result)
+        tasks_count = len(await db.get_tasks_by_tgid(callback.from_user.id))
+        await callback.message.answer(
+            text=text,
+            reply_markup=kb.search_result(deep_search=True, auto_tasks=tasks_count),
+        )
         await state.set_state(BotStatus.search_result)
 
 
@@ -271,11 +279,12 @@ async def set_auto_search_msg(tg_user_id: int, state: FSMContext):
             f"<b>◦ Имя:</b> {user_tasks[0]['search_name'].title()}\n"
             f"<b>◦ Включен:</b> {utils.utc_to_msk(user_tasks[0]['when_created'])}\n"
         )
-        if user_tasks[0]["when_changed"]:
+        if user_tasks[0]["when_changed"] != user_tasks[0]["when_created"]:
             text += f"<b>◦ Пред. поиск:</b> {utils.utc_to_msk(user_tasks[0]['when_changed'])}\n"
         text += (
-            "\nЖдите... Когда новый ИИН с этими параметрами будет автоматически "
-            "найден, бот пришлёт вам сообщение."
+            "\n⏰ Ждите... Когда новый ИИН с этими параметрами будет автоматически "
+            "найден, бот пришлёт вам сообщение.\n\n<i>Пока авто-поиск работает в фоновом"
+            "режиме, вы можете параллельно вручную делать другие поисковые запросы.</i>"
         )
         reply_markup = kb.auto_search_is_on
     return text, reply_markup
@@ -480,6 +489,3 @@ async def default_handler(message: Message) -> None:
         "Чтобы начать новый поиск ИИН, отправьте: /start"
     )
     await message.answer(text=text)
-
-
-

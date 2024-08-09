@@ -20,9 +20,6 @@ pdf_begin_button = InlineKeyboardButton(
 )
 rtf_button = InlineKeyboardButton(text="📄 RTF-шаблон", callback_data="cb_rtf")
 docx_button = InlineKeyboardButton(text="📄 DOCX-шаблон", callback_data="cb_docx")
-auto_search_button = InlineKeyboardButton(
-    text="🔁 Настроить авто-поиск", callback_data="cb_auto_search"
-)
 start_task_button = InlineKeyboardButton(
     text="▶️ Включить авто-поиск", callback_data="cb_start_task"
 )
@@ -34,22 +31,33 @@ remove_task_button = InlineKeyboardButton(
     text="➖ Удалить", callback_data="cb_remove_task"
 )
 
-standard_search_result = InlineKeyboardMarkup(
-    inline_keyboard=[
-        [deep_search_button],
-        [auto_search_button],
-        [info_button, print_button],
-        [donate_button, standard_search_button],
-    ]
-)
 
-deep_search_result = InlineKeyboardMarkup(
-    inline_keyboard=[
-        [auto_search_button],
-        [info_button, print_button],
-        [donate_button, standard_search_button],
-    ]
-)
+def search_result(deep_search: bool, auto_tasks: int):
+    text = "🔁 Настроить авто-поиск "
+    if auto_tasks == 0:
+        text += "⚪"
+    elif auto_tasks == 1:
+        text += "🟢"
+    auto_search_button = InlineKeyboardButton(text=text, callback_data="cb_auto_search")
+    if deep_search:
+        markup = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [auto_search_button],
+                [info_button, print_button],
+                [donate_button, standard_search_button],
+            ]
+        )
+    else:
+        markup = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [deep_search_button],
+                [auto_search_button],
+                [info_button, print_button],
+                [donate_button, standard_search_button],
+            ]
+        )
+    return markup
+
 
 auto_search_is_off = InlineKeyboardMarkup(
     inline_keyboard=[[start_task_button], [donate_button, standard_search_button]]
