@@ -1,7 +1,10 @@
+# from bot_instance import bot
+
 import asyncio
 from pathlib import Path
 import aiosqlite
 import ujson
+import zipfile
 
 Path("app", "data").mkdir(exist_ok=True)
 cache_db_file = Path("app", "data", "cache.db")
@@ -355,3 +358,19 @@ async def get_tasks_by_time() -> list[dict]:
             for row in matching_rows
         ]
         return auto_search_tasks
+
+
+def archive_db_files():
+    with zipfile.ZipFile(
+        file="app/data/db_archive.zip",
+        mode="w",
+        compression=zipfile.ZIP_DEFLATED,
+        compresslevel=9,
+    ) as zf:
+        zf.write(filename="app/data/access.db", arcname="access.db")
+        zf.write(filename="app/data/auto_search.db", arcname="auto_search.db")
+        zf.write(filename="app/data/search_log.db", arcname="search_log.db")
+
+
+if __name__ == "__main__":
+    archive_db_files()

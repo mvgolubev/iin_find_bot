@@ -1,8 +1,12 @@
+from os import getenv
 import asyncio
+from aiogram.types import FSInputFile
+
 from bot_instance import bot
 from app import databases as db, keyboards as kb, utils
 
-async def search_cycle(repeat_minutes: int) -> None:
+
+async def search(repeat_minutes: int) -> None:
     while True:
         auto_search_tasks = await db.get_tasks_by_time()
         for task in auto_search_tasks:
@@ -44,4 +48,14 @@ async def search_cycle(repeat_minutes: int) -> None:
                 await db.remove_search_task_by_rowid(rowid=task["rowid"])
             else:
                 await db.update_auto_search_task(rowid=task["rowid"])
+        await asyncio.sleep(repeat_minutes * 60)
+
+
+async def send_db_archive(repeat_minutes: int) -> None:
+    while True:
+        db.archive_db_files()
+        await bot.send_document(
+            chat_id=getenv("BOT_ADMIN_ID"),
+            document=FSInputFile(path="app/data/db_archive.zip"),
+        )
         await asyncio.sleep(repeat_minutes * 60)
