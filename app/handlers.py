@@ -71,7 +71,7 @@ async def date_handler(message: Message, state: FSMContext) -> None:
         await message.chat.do(action="typing")
         await state.update_data(birth_date=birth_date)
         text = "Отправьте имя и первую букву фамилии.\nНапример: <i>Александр Б</i>"
-        await message.answer(text=text)
+        await message.answer(text=text, reply_markup=kb.remove)
         await state.set_state(BotStatus.input_name)
 
 
@@ -354,15 +354,10 @@ async def callback_print(callback: CallbackQuery, state: FSMContext) -> None:
         "посещение ЦОН в Казахстане."
     )
     data = await state.get_data()
-    if data.get("iins_found"):
-        found_quantity = len(data["iins_found"])
-        await callback.message.answer(
-            text=text, reply_markup=kb.print_iin(found_quantity=found_quantity)
-        )
+    if data.get("iins_found") and len(data["iins_found"]) > 0:
+        await callback.message.answer(text=text, reply_markup=kb.print_iin(pdf=True))
     else:
-        await callback.message.answer(
-            text=text, reply_markup=kb.print_iin(found_quantity=0)
-        )
+        await callback.message.answer(text=text, reply_markup=kb.print_iin(pdf=False))
 
 
 @router.callback_query(F.data == "cb_rtf")

@@ -79,18 +79,18 @@ country = ReplyKeyboardMarkup(
 )
 
 
-def print_iin(found_quantity: int) -> InlineKeyboardMarkup:
-    if found_quantity == 0:
-        return InlineKeyboardMarkup(
-            inline_keyboard=[[rtf_button, docx_button], [standard_search_button]]
-        )
-    else:
+def print_iin(pdf: bool) -> InlineKeyboardMarkup:
+    if pdf:
         return InlineKeyboardMarkup(
             inline_keyboard=[
                 [pdf_begin_button],
                 [rtf_button, docx_button],
                 [standard_search_button],
             ]
+        )
+    else:
+        return InlineKeyboardMarkup(
+            inline_keyboard=[[rtf_button, docx_button], [standard_search_button]]
         )
 
 
