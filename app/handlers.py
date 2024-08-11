@@ -37,24 +37,23 @@ async def start_handler(message: Message, state: FSMContext) -> None:
     await state.clear()
     searches_count, next_possible_time_msk = await db.get_log_by_tgid(message.chat.id)
     if searches_count >= 10:
-        await message.answer(
-            text=(
-                "⛔ <b>Поиск временно ограничен</b>\n\nВы достигли лимита: "
-                "10 поисковых запросов за последние 7 дней.\nСледующий поиск "
-                f"будет возможен после <b>{next_possible_time_msk} (MSK)</b>"
-            )
+        text = (
+            "⛔ <b>Поиск временно ограничен</b>\n\nВы достигли лимита: "
+            "10 поисковых запросов за последние 7 дней.\nСледующий поиск "
+            f"будет возможен после <b>{next_possible_time_msk} (MSK)</b>"
         )
+        await message.answer(text=text)
         return None
     elif searches_count in [7, 8, 9]:
-        await message.answer(
-            text=(
-                "⚠️ <b>Вы близки к достижению лимита</b>\n\nЗа последние 7 дней "
-                f"вы сделали <b>{searches_count}</b> поисковых запросов (лимит: "
-                "10 запросов за последние 7 дней).\n\nПо возможности используйте "
-                'авто-поиск по кнопке <b>"Авто-поиск"</b> в результатах ручного поиска.\n'
-                "Авто-поиск не расходует лимит на количество ручных поисковых запросов."
-            )
+        text = (
+            "⚠️ <b>Вы близки к достижению лимита</b>\n\nЗа последние 7 дней "
+            f"вы сделали <b>{searches_count}</b> поисковых запросов (лимит: "
+            "10 запросов за последние 7 дней).\n\nПо возможности используйте "
+            'авто-поиск по кнопке <b>"Настроить Авто-поиск"</b> в результатах '
+            "ручного поиска.\nАвто-поиск не расходует лимит на количество "
+            "ручных поисковых запросов."
         )
+        await message.answer(text=text)
     await message.answer(text=f"🔎 <b>Поиск ИИН</b>\n\n{constants.DATE_REQUEST}")
     await state.set_state(BotStatus.input_birth_date)
 
@@ -65,13 +64,13 @@ async def date_handler(message: Message, state: FSMContext) -> None:
         birth_date = date.fromisoformat(message.text)
     except ValueError as date_error:
         await message.react([ReactionTypeEmoji(emoji="👎")])
-        text=f"⚠️ Дата указана некорректно\n({date_error})\n{constants.DATE_REQUEST}"
+        text = f"⚠️ Дата указана некорректно\n({date_error})\n{constants.DATE_REQUEST}"
         await message.reply(text=text)
     else:
         await message.react([ReactionTypeEmoji(emoji="✍")])
         await message.chat.do(action="typing")
         await state.update_data(birth_date=birth_date)
-        text="Отправьте имя и первую букву фамилии.\nНапример: <i>Александр Б</i>"
+        text = "Отправьте имя и первую букву фамилии.\nНапример: <i>Александр Б</i>"
         await message.answer(text=text)
         await state.set_state(BotStatus.input_name)
 
@@ -88,15 +87,14 @@ async def name_handler(message: Message, state: FSMContext) -> None:
         return None
     await state.update_data(name=name)
     data = await state.get_data()
-    await message.answer(
-        text=(
-            "🤖🔎 Начал поиск ИИН со следующими параметрами:\n\n"
-            f"<b>◦ ИИН:</b> {data['birth_date']:%y%m%d}05xxxx\n"
-            f"<b>◦ Имя:</b> {str.title(data['name'])}\n"
-            f"<b>◦ Дата рождения:</b> {data['birth_date']}\n\n"
-            "Ждите завершения поиска (несколько секунд)... ⏱️"
-        )
+    text = (
+        "🤖🔎 Начал поиск ИИН со следующими параметрами:\n\n"
+        f"<b>◦ ИИН:</b> {data['birth_date']:%y%m%d}05xxxx\n"
+        f"<b>◦ Имя:</b> {str.title(data['name'])}\n"
+        f"<b>◦ Дата рождения:</b> {data['birth_date']}\n\n"
+        "Ждите завершения поиска (несколько секунд)... ⏱️"
     )
+    await message.answer(text=text)
     await message.chat.do(action="typing")
     tg_first_name = message.from_user.first_name
     tg_last_name = message.from_user.last_name
@@ -165,15 +163,14 @@ async def callback_deep_search(callback: CallbackQuery, state: FSMContext) -> No
     if not data.get("name"):
         await default_handler(callback.message)
     else:
-        await callback.message.answer(
-            text=(
-                "🤖🔎 Дополнительно ищу (среди более старых ИИН):\n\n"
-                f"<b>◦ ИИН:</b> {data['birth_date']:%y%m%d}00xxxx\n"
-                f"<b>◦ Имя:</b> {str.title(data['name'])}\n"
-                f"<b>◦ Дата рождения</b>: {data['birth_date']}\n\n"
-                "Ждите завершения поиска (несколько секунд)... ⏱️"
-            )
+        text = (
+            "🤖🔎 Дополнительно ищу (среди более старых ИИН):\n\n"
+            f"<b>◦ ИИН:</b> {data['birth_date']:%y%m%d}00xxxx\n"
+            f"<b>◦ Имя:</b> {str.title(data['name'])}\n"
+            f"<b>◦ Дата рождения</b>: {data['birth_date']}\n\n"
+            "Ждите завершения поиска (несколько секунд)... ⏱️"
         )
+        await callback.message.answer(text=text)
         await callback.message.chat.do(action="typing")
         tg_first_name = callback.from_user.first_name
         tg_last_name = callback.from_user.last_name
