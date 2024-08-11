@@ -65,16 +65,14 @@ async def date_handler(message: Message, state: FSMContext) -> None:
         birth_date = date.fromisoformat(message.text)
     except ValueError as date_error:
         await message.react([ReactionTypeEmoji(emoji="👎")])
-        await message.reply(
-            text=f"⚠️ Дата указана некорректно\n({date_error})\n{constants.DATE_REQUEST}"
-        )
+        text=f"⚠️ Дата указана некорректно\n({date_error})\n{constants.DATE_REQUEST}"
+        await message.reply(text=text)
     else:
         await message.react([ReactionTypeEmoji(emoji="✍")])
         await message.chat.do(action="typing")
         await state.update_data(birth_date=birth_date)
-        await message.answer(
-            text="Отправьте имя и первую букву фамилии.\nНапример: <i>Александр Б</i>"
-        )
+        text="Отправьте имя и первую букву фамилии.\nНапример: <i>Александр Б</i>"
+        await message.answer(text=text)
         await state.set_state(BotStatus.input_name)
 
 
@@ -83,6 +81,11 @@ async def name_handler(message: Message, state: FSMContext) -> None:
     await message.react([ReactionTypeEmoji(emoji="✍")])
     await message.chat.do(action="typing")
     name = message.text.strip(" .").casefold()
+    if len(name) == 0 or not all(char.isalpha() or char.isspace() for char in name):
+        await message.react([ReactionTypeEmoji(emoji="👎")])
+        text = "⚠️ Некорректное значение!\nПовторите ввод имени и первой буквы фамилии."
+        await message.reply(text=text)
+        return None
     await state.update_data(name=name)
     data = await state.get_data()
     await message.answer(
