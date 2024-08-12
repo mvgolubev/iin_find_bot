@@ -1,10 +1,10 @@
 import asyncio
-from datetime import date
+from datetime import date, datetime, timedelta
 
 import aiohttp
 from bs4 import BeautifulSoup
 
-from app import constants, captcha
+from app import constants, captcha, databases as db
 
 
 def generate_iins(
@@ -74,7 +74,7 @@ def empty_name_postkz(iins_postkz: list[dict]) -> list[dict]:
     names_list = [iin["name"] for iin in iins_postkz]
     if names_list.count(None) == len(names_list):
         last_est_index = 4
-    else:     
+    else:
         last_name_value = [name for name in names_list if name][-1]
         names_list.reverse()
         last_est_index = min(
@@ -83,11 +83,7 @@ def empty_name_postkz(iins_postkz: list[dict]) -> list[dict]:
     iins_empty_postkz = []
     for i in range(last_est_index):
         if not iins_postkz[i]["name"]:
-            empty_iin = {
-                "iin": iins_postkz[i]["iin"],
-                "name": None,
-                "kgd_date": None,
-            }
+            empty_iin = {"iin": iins_postkz[i]["iin"]}
             iins_empty_postkz.append(empty_iin)
     return iins_empty_postkz
 
@@ -180,19 +176,58 @@ def match_name_nca(input_name: str, nca_updated_iins: list[dict]) -> list[dict]:
 
 
 def get_full_name(iin_data: dict) -> str:
-    first = iin_data["first_name"] if iin_data["first_name"] else ""
-    middle = iin_data["middle_name"] if iin_data["middle_name"] else ""
-    last = iin_data["last_name"] if iin_data["last_name"] else ""
+    first = iin_data["first_name"] or ""
+    middle = iin_data["middle_name"] or ""
+    last = iin_data["last_name"] or ""
     return f"{last} {first} {middle}".strip().title()
 
 
-async def find_iin(birth_date: date, name: str, digit_8th: int = 5) -> list[dict]:
+async def find_iin(
+    birth_date: date, name: str, digit_8th: int = 5
+) -> tuple[int, list[dict], list[dict]]:
+    cache_used, cached_data = await db.read_cache(birth_date, name, digit_8th)
     async with aiohttp.ClientSession() as session:
-        iins_possible = generate_iins(birth_date, digit_8th=digit_8th, quantity=300)
-        iins_postkz = await mass_upd_iins_postkz(session, iins_possible)
+        if cache_used == 2:
+            return cache_used, cached_data[0], cached_data[1]
+        elif cache_used == 1:
+            iins_postkz = cached_data
+        elif cache_used == 0:
+            iins_possible = generate_iins(birth_date, digit_8th=digit_8th, quantity=300)
+            iins_postkz = await mass_upd_iins_postkz(session, iins_possible)
+
+            data_to_cache = {
+                "search_date": birth_date,
+                "digit_8th": digit_8th,
+                "iins_postkz": iins_postkz,
+            }
+            await db.write_cache(cache_level=1, cache_data=data_to_cache)
         iins_matched_postkz = match_name_postkz(name, iins_postkz)
         iins_empty_postkz = empty_name_postkz(iins_postkz)
         iins_possible_postkz = iins_matched_postkz + iins_empty_postkz
         iins_nca = await mass_upd_iins_nca(session, iins_possible_postkz)
-        iins_matched_nca = match_name_nca(name, iins_nca)
-    return iins_matched_nca
+        iins_found = match_name_nca(name, iins_nca)
+        iins_auto_search = [
+            {"iin": iin["iin"]}
+            for iin in iins_empty_postkz
+            if iin["iin"] not in [iin["iin"] for iin in iins_found]
+        ]
+        data_to_cache = {
+            "search_date": birth_date,
+            "search_name": name,
+            "digit_8th": digit_8th,
+            "iins_found": iins_found,
+            "iins_auto_search": iins_auto_search,
+        }
+        await db.write_cache(cache_level=2, cache_data=data_to_cache)
+    return cache_used, iins_found, iins_auto_search
+
+
+async def find_iin_auto(iins_auto_search: list[dict], name: str) -> list[dict]:
+    async with aiohttp.ClientSession() as session:
+        iins_nca = await mass_upd_iins_nca(session, iins_auto_search)
+        return match_name_nca(name, iins_nca)
+
+
+def utc_to_msk(utc_datetime: str) -> str:
+    msk_datetime = datetime.fromisoformat(utc_datetime) + timedelta(hours=3)
+    return f"{msk_datetime:%Y-%m-%d %H:%M} (MSK)"

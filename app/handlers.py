@@ -14,12 +14,14 @@ from aiogram.types import (
     BufferedInputFile,
 )
 
-from app import constants, utils, pdf_generator, database as db, keyboards as kb
+from app import constants, utils, pdf_generator, databases as db, keyboards as kb
 
 
 class BotStatus(StatesGroup):
     input_birth_date = State()
     input_name = State()
+    search_result = State()
+    config_auto_search = State()
     choose_iin = State()
     country_request = State()
     input_country = State()
@@ -33,8 +35,28 @@ router = Router()
 @router.message(CommandStart())
 async def start_handler(message: Message, state: FSMContext) -> None:
     await state.clear()
-    text = f"🔎 <b>Поиск ИИН</b>\n\n{constants.DATE_REQUEST}"
-    await message.answer(text=text)
+    user_role = await db.access_level(message.from_user.id)
+    if user_role == "admin":
+        searches_count, next_possible_time_msk = await db.get_log_by_tgid(message.chat.id)
+        if searches_count >= 10:
+            text = (
+                "⛔ <b>Поиск временно ограничен</b>\n\nВы достигли лимита: "
+                "10 поисковых запросов за последние 7 дней.\nСледующий поиск "
+                f"будет возможен после <b>{next_possible_time_msk} (MSK)</b>"
+            )
+            await message.answer(text=text)
+            return None
+        if searches_count in [7, 8, 9]:
+            text = (
+                "⚠️ <b>Вы близки к достижению лимита</b>\n\nЗа последние 7 дней "
+                f"вы сделали <b>{searches_count}</b> поисковых запросов (лимит: "
+                "10 запросов за последние 7 дней).\n\nПо возможности используйте "
+                'авто-поиск по кнопке <b>"Настроить Авто-поиск"</b> в результатах '
+                "ручного поиска.\nАвто-поиск не расходует лимит на количество "
+                "ручных поисковых запросов."
+            )
+            await message.answer(text=text)
+    await message.answer(text=f"🔎 <b>Поиск ИИН</b>\n\n{constants.DATE_REQUEST}")
     await state.set_state(BotStatus.input_birth_date)
 
 
@@ -44,16 +66,14 @@ async def date_handler(message: Message, state: FSMContext) -> None:
         birth_date = date.fromisoformat(message.text)
     except ValueError as date_error:
         await message.react([ReactionTypeEmoji(emoji="👎")])
-        await message.reply(
-            text=f"⚠️ Дата указана некорректно\n({date_error})\n{constants.DATE_REQUEST}"
-        )
+        text = f"⚠️ Дата указана некорректно\n({date_error})\n{constants.DATE_REQUEST}"
+        await message.reply(text=text)
     else:
         await message.react([ReactionTypeEmoji(emoji="✍")])
         await message.chat.do(action="typing")
         await state.update_data(birth_date=birth_date)
-        await message.answer(
-            text="Отправьте имя и первую букву фамилии.\nНапример: <i>Александр Б</i>"
-        )
+        text = "Отправьте имя и первую букву фамилии.\nНапример: <i>Александр Б</i>"
+        await message.answer(text=text, reply_markup=kb.remove)
         await state.set_state(BotStatus.input_name)
 
 
@@ -62,6 +82,11 @@ async def name_handler(message: Message, state: FSMContext) -> None:
     await message.react([ReactionTypeEmoji(emoji="✍")])
     await message.chat.do(action="typing")
     name = message.text.strip(" .").casefold()
+    if len(name) == 0 or not all(char.isalpha() or char.isspace() for char in name):
+        await message.react([ReactionTypeEmoji(emoji="👎")])
+        text = "⚠️ Некорректное значение!\nПовторите ввод имени и первой буквы фамилии."
+        await message.reply(text=text)
+        return None
     await state.update_data(name=name)
     data = await state.get_data()
     text = (
@@ -83,17 +108,24 @@ async def name_handler(message: Message, state: FSMContext) -> None:
     search = {
         "date": f"{data["birth_date"]:%Y-%m-%d}",
         "name": data["name"].title(),
+        "digit_8th": 5,
+        "auto": 0,
     }
-    row_num = await db.add_log_search(tg_user, search, search_type=0)
-    iins_found = await utils.find_iin(
+    log_row_num = await db.add_log_record(tg_user, search)
+    cache_used, iins_found, iins_auto_search = await utils.find_iin(
         birth_date=data["birth_date"], name=data["name"], digit_8th=5
     )
-    await db.add_log_count(row_num, len(iins_found))
-    await state.update_data(iins_found=iins_found)
+    await db.update_log_record(
+        rowid=log_row_num, cache_used=cache_used, iins_found=iins_found
+    )
+    await state.update_data(iins_found=iins_found, iins_auto_search=iins_auto_search)
     if len(iins_found) == 0:
         text = f"{constants.NOT_FOUND_TEXT}{constants.DEEP_SEARCH_TEXT}"
     else:
-        text = f"✅ <b>Найдено: {len(iins_found)} ИИН</b>\n"
+        text = f"✅ <b>Найдено: {len(iins_found)} ИИН</b>"
+        if cache_used > 0:
+            text += " (из кэша)"
+        text += "\n"
         if len(iins_found) > 1:
             text += "Ваш ИИН только один из них (который с вашими ФИО).\n"
         text += "\n"
@@ -102,7 +134,7 @@ async def name_handler(message: Message, state: FSMContext) -> None:
             full_name = utils.get_full_name(iin)
             text += f"<b>ФИО:</b> {full_name}\n"
             text += "Добавлен в базу налоговой: "
-            if iin["kgd_date"]:
+            if iin.get("kgd_date"):
                 text += f"{iin['kgd_date']}\n\n"
             else:
                 text += '(нет) - см. "Info"\n\n'
@@ -112,7 +144,12 @@ async def name_handler(message: Message, state: FSMContext) -> None:
             "🤷‍♂️ <b>Среди найденных ИИН нет вашего?</b>\n"
             f"{constants.DEEP_SEARCH_TEXT}"
         )
-    await message.answer(text=text, reply_markup=kb.standard_search_result)
+    tasks_count = len(await db.get_tasks_by_tgid(message.from_user.id))
+    await message.answer(
+        text=text,
+        reply_markup=kb.search_result(deep_search=False, auto_tasks=tasks_count),
+    )
+    await state.set_state(BotStatus.search_result)
 
 
 @router.callback_query(F.data == "cb_standard_search")
@@ -137,7 +174,6 @@ async def callback_deep_search(callback: CallbackQuery, state: FSMContext) -> No
         )
         await callback.message.answer(text=text)
         await callback.message.chat.do(action="typing")
-
         tg_first_name = callback.from_user.first_name
         tg_last_name = callback.from_user.last_name
         tg_user = {
@@ -148,17 +184,23 @@ async def callback_deep_search(callback: CallbackQuery, state: FSMContext) -> No
         search = {
             "date": f"{data["birth_date"]:%Y-%m-%d}",
             "name": data["name"].title(),
+            "digit_8th": 0,
+            "auto": 0,
         }
-        row_num = await db.add_log_search(tg_user, search, search_type=1)
-        iins_found = await utils.find_iin(
+        row_num = await db.add_log_record(tg_user, search)
+        cache_used, iins_found, _ = await utils.find_iin(
             birth_date=data["birth_date"], name=data["name"], digit_8th=0
         )
-        await db.add_log_count(row_num, len(iins_found))
+        await db.update_log_record(
+            rowid=row_num, cache_used=cache_used, iins_found=iins_found
+        )
         await state.update_data(iins_found=iins_found)
         if len(iins_found) == 0:
             text = f"{constants.NOT_FOUND_TEXT}"
         else:
-            text = f"✅ <b>Найдено: {len(iins_found)} ИИН</b>\n"
+            text = f"✅ <b>Найдено: {len(iins_found)} ИИН</b>"
+            if cache_used == 2:
+                text += " (из кэша)"
             if len(iins_found) > 1:
                 text += "Ваш ИИН только один из них (который с вашими ФИО).\n"
             text += "\n"
@@ -167,7 +209,7 @@ async def callback_deep_search(callback: CallbackQuery, state: FSMContext) -> No
                 full_name = utils.get_full_name(iin)
                 text += f"<b>ФИО:</b> {full_name}\n"
                 text += "Добавлен в базу налоговой: "
-                if iin["kgd_date"]:
+                if iin.get("kgd_date"):
                     text += f"{iin['kgd_date']}\n\n"
                 else:
                     text += '(нет) - см. "Info"\n\n'
@@ -175,7 +217,79 @@ async def callback_deep_search(callback: CallbackQuery, state: FSMContext) -> No
                 "<i>(ткните в значение ИИН, чтобы скопировать его в буфер)</i>\n\n"
                 'Сказать спасибо можно по кнопке <b>"Donate"</b>'
             )
-        await callback.message.answer(text=text, reply_markup=kb.deep_search_result)
+        tasks_count = len(await db.get_tasks_by_tgid(callback.from_user.id))
+        await callback.message.answer(
+            text=text,
+            reply_markup=kb.search_result(deep_search=True, auto_tasks=tasks_count),
+        )
+        await state.set_state(BotStatus.search_result)
+
+
+@router.callback_query(F.data == "cb_auto_search", BotStatus.search_result)
+@router.callback_query(F.data == "cb_start_task", BotStatus.config_auto_search)
+@router.callback_query(F.data == "cb_stop_task", BotStatus.config_auto_search)
+async def callback_auto_search(callback: CallbackQuery, state: FSMContext) -> None:
+    await callback.answer(text="")
+    if callback.data == "cb_auto_search":
+        text, reply_markup = await set_auto_search_msg(callback.from_user.id, state)
+        await callback.message.answer(text=text, reply_markup=reply_markup)
+        await state.set_state(BotStatus.config_auto_search)
+    elif callback.data == "cb_start_task":
+        tg_first_name = callback.from_user.first_name
+        tg_last_name = callback.from_user.last_name
+        tg_user = {
+            "id": callback.from_user.id,
+            "nick": callback.from_user.username,
+            "name": f"{tg_first_name}{' '+tg_last_name if tg_last_name else ''}",
+        }
+        data = await state.get_data()
+        search = {
+            "date": data["birth_date"],
+            "name": data["name"],
+            "iins_auto_search": data["iins_auto_search"],
+        }
+        await db.add_auto_search_task(tg_user=tg_user, search=search)
+        text, reply_markup = await set_auto_search_msg(callback.from_user.id, state)
+        await callback.message.edit_text(text=text, reply_markup=reply_markup)
+    elif callback.data == "cb_stop_task":
+        await db.remove_user_search_tasks(callback.from_user.id)
+        text, reply_markup = await set_auto_search_msg(callback.from_user.id, state)
+        await callback.message.edit_text(text=text, reply_markup=reply_markup)
+
+
+async def set_auto_search_msg(tg_user_id: int, state: FSMContext):
+    user_tasks = await db.get_tasks_by_tgid(tg_user_id)
+    data = await state.get_data()
+    text = "🔁 <b>Авто-поиск:</b> "
+    if len(user_tasks) == 0:
+        text += (
+            "⚪ <b>(отключен)</b>\n\nМожно включить авто-поиск с параметрами "
+            "последнего ручного поиска:\n\n"
+            f"<b>◦ Дата рождения:</b> {data['birth_date']:%Y-%m-%d}\n"
+            f"<b>◦ Имя:</b> {data['name'].title()}"
+        )
+        if data["iins_found"]:
+            text += (
+                "\n\n<blockquote>⚠️ ВАЖНО: ИИН, найденные при ручном поиске, "
+                "будут исключены из результатов авто-поиска!</blockquote>"
+            )
+        reply_markup = kb.auto_search_is_off
+    if len(user_tasks) == 1:
+        text += (
+            "🟢 <b>(включен)</b>\n\nАвто-поиск ИИН включен со следующими параметрами:\n\n"
+            f"<b>◦ Дата рождения:</b> {user_tasks[0]['search_date']}\n"
+            f"<b>◦ Имя:</b> {user_tasks[0]['search_name'].title()}\n"
+            f"<b>◦ Включен:</b> {utils.utc_to_msk(user_tasks[0]['when_created'])}\n"
+        )
+        if user_tasks[0]["when_changed"] != user_tasks[0]["when_created"]:
+            text += f"<b>◦ Пред. поиск:</b> {utils.utc_to_msk(user_tasks[0]['when_changed'])}\n"
+        text += (
+            "\n⏰ Ждите... Когда новый ИИН с этими параметрами будет автоматически "
+            "найден, бот пришлёт вам сообщение.\n\n<i>Пока авто-поиск работает в фоновом"
+            "режиме, вы можете параллельно вручную делать другие поисковые запросы.</i>"
+        )
+        reply_markup = kb.auto_search_is_on
+    return text, reply_markup
 
 
 @router.callback_query(F.data == "cb_info")
@@ -211,14 +325,15 @@ async def callback_info(callback: CallbackQuery) -> None:
 @router.callback_query(F.data == "cb_donate")
 async def callback_donate(callback: CallbackQuery) -> None:
     await callback.answer(text="")
-    text = (
-        "💳 <b>Donate</b>\n\n"
-        "Данный бот - это некоммерческий проект.\n"
-        "Если бот вам помог, вы можете отблагодарить разработчика "
-        f"<a href='{constants.DONATE_URL}'>пожертвованием</a>"
-    )
     await callback.message.answer(
-        text=text, disable_web_page_preview=True, reply_markup=kb.donate
+        text=(
+            "💳 <b>Donate</b>\n\n"
+            "Данный бот - это некоммерческий проект.\n"
+            "Если бот вам помог, вы можете отблагодарить разработчика "
+            f"<a href='{constants.DONATE_URL}'>пожертвованием</a>"
+        ),
+        disable_web_page_preview=True,
+        reply_markup=kb.donate,
     )
 
 
@@ -241,15 +356,10 @@ async def callback_print(callback: CallbackQuery, state: FSMContext) -> None:
         "посещение ЦОН в Казахстане."
     )
     data = await state.get_data()
-    if data.get("iins_found"):
-        found_quantity = len(data["iins_found"])
-        await callback.message.answer(
-            text=text, reply_markup=kb.print_iin(found_quantity=found_quantity)
-        )
+    if data.get("iins_found") and len(data["iins_found"]) > 0:
+        await callback.message.answer(text=text, reply_markup=kb.print_iin(pdf=True))
     else:
-        await callback.message.answer(
-            text=text, reply_markup=kb.print_iin(found_quantity=0)
-        )
+        await callback.message.answer(text=text, reply_markup=kb.print_iin(pdf=False))
 
 
 @router.callback_query(F.data == "cb_rtf")
