@@ -36,7 +36,7 @@ router = Router()
 async def start_handler(message: Message, state: FSMContext) -> None:
     await state.clear()
     user_role = await db.access_level(message.from_user.id)
-    if user_role == "admin":
+    if user_role == "default":
         searches_count, next_possible_time_msk = await db.get_log_by_tgid(message.chat.id)
         if searches_count >= 10:
             text = (
