@@ -26,10 +26,10 @@ start_task_button = InlineKeyboardButton(
 stop_task_button = InlineKeyboardButton(
     text="⏹️ Отключить авто-поиск", callback_data="cb_stop_task"
 )
-add_task_button = InlineKeyboardButton(text="➕ Добавить", callback_data="cb_add_task")
-remove_task_button = InlineKeyboardButton(
-    text="➖ Удалить", callback_data="cb_remove_task"
-)
+# add_task_button = InlineKeyboardButton(text="➕ Добавить", callback_data="cb_add_task")
+# remove_task_button = InlineKeyboardButton(
+#     text="➖ Удалить", callback_data="cb_remove_task"
+# )
 
 
 def search_result(deep_search: bool, auto_tasks: int):
@@ -66,6 +66,13 @@ auto_search_is_off = InlineKeyboardMarkup(
 auto_search_is_on = InlineKeyboardMarkup(
     inline_keyboard=[[stop_task_button], [donate_button, standard_search_button]]
 )
+
+# auto_search_result = InlineKeyboardMarkup(
+#     inline_keyboard=[
+#         [donate_button, print_button],
+#         [standard_search_button],
+#     ]
+# )
 
 info = InlineKeyboardMarkup(inline_keyboard=[[donate_button, standard_search_button]])
 donate = InlineKeyboardMarkup(inline_keyboard=[[info_button, standard_search_button]])

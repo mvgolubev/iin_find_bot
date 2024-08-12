@@ -1,5 +1,4 @@
-# from bot_instance import bot
-
+from os import getenv
 import asyncio
 from pathlib import Path
 import aiosqlite
@@ -77,11 +76,7 @@ async def create_databases() -> None:
                     tg_id INTEGER NOT NULL,
                     tg_nick TEXT,
                     tg_name TEXT,
-                    expires TEXT NOT NULL,
-                    admin_tg_id INTEGER NOT NULL,
-                    admin_tg_nick TEXT,
-                    admin_tg_name TEXT,
-                    admin_comment TEXT
+                    expires TEXT NOT NULL
                 )"""
             )
             await cursor.execute(
@@ -90,13 +85,37 @@ async def create_databases() -> None:
                     tg_id INTEGER NOT NULL,
                     tg_nick TEXT,
                     tg_name TEXT,
-                    expires TEXT NOT NULL,
-                    admin_tg_id INTEGER NOT NULL,
-                    admin_tg_nick TEXT,
-                    admin_tg_name TEXT,
-                    admin_comment TEXT
+                    expires TEXT NOT NULL
                 )"""
             )
+
+
+async def access_level(tg_id: int) -> str:
+    if tg_id == int(getenv("BOT_ADMIN_ID")):
+        return "admin"
+    else:
+        return "default"
+    # async with aiosqlite.connect(access_db_file) as db_connection:
+    #     cursor = await db_connection.cursor()
+    #     await cursor.execute(
+    #         """SELECT * FROM black_list
+    #             WHERE tg_id == ?
+    #         """,
+    #         (str(tg_id)),
+    #     )
+    #     db_data = await cursor.fetchone()
+    #     if db_data:
+    #         return "black"
+    #     await cursor.execute(
+    #         """SELECT * FROM white_list
+    #             WHERE tg_id == ?
+    #         """,
+    #         (str(tg_id)),
+    #     )
+    #     db_data = await cursor.fetchone()
+    #     if db_data:
+    #         return "white"
+    # return "normal"
 
 
 async def write_cache(cache_level: int, cache_data: dict) -> None:
