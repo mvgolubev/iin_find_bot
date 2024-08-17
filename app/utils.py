@@ -1,5 +1,5 @@
 import asyncio
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import aiohttp
 from bs4 import BeautifulSoup
@@ -231,3 +231,12 @@ async def find_iin_auto(iins_auto_search: list[dict], name: str) -> list[dict]:
 def utc_to_msk(utc_datetime: str) -> str:
     msk_datetime = datetime.fromisoformat(utc_datetime) + timedelta(hours=3)
     return f"{msk_datetime:%Y-%m-%d %H:%M} (MSK)"
+
+
+def is_time_to_search() -> bool:
+    now_utc = datetime.now(timezone.utc)
+    if now_utc.weekday() > 4:
+        return False
+    if now_utc.hour < 4 or now_utc.hour > 16:
+        return False
+    return True
