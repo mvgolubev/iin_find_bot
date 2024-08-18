@@ -49,9 +49,9 @@ async def search(repeat_minutes: int) -> None:
                     await db.remove_search_task_by_rowid(rowid=task["rowid"])
                 else:
                     await db.update_auto_search_task(rowid=task["rowid"])
-            else:
-                for task in auto_search_tasks:
-                    await db.update_auto_search_task(rowid=task["rowid"])
+        else:
+            for task in auto_search_tasks:
+                await db.update_auto_search_task(rowid=task["rowid"])
         await asyncio.sleep(repeat_minutes * 60)
 
 
