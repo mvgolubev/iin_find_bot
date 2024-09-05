@@ -43,9 +43,12 @@ async def search(repeat_minutes: int) -> None:
                         "<i>(ткните в значение ИИН, чтобы скопировать его в буфер)</i>\n\n"
                         'Сказать спасибо можно по кнопке <b>"Donate"</b>'
                     )
-                    await bot.send_message(
-                        chat_id=task["tg_id"], text=text, reply_markup=kb.info
-                    )
+                    try:
+                        await bot.send_message(
+                            chat_id=task["tg_id"], text=text, reply_markup=kb.info
+                        )
+                    except Exception as err:
+                        print(err)
                     await db.remove_search_task_by_rowid(rowid=task["rowid"])
                 else:
                     await db.update_auto_search_task(rowid=task["rowid"])

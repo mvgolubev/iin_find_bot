@@ -194,7 +194,6 @@ async def find_iin(
         elif cache_used == 0:
             iins_possible = generate_iins(birth_date, digit_8th=digit_8th, quantity=300)
             iins_postkz = await mass_upd_iins_postkz(session, iins_possible)
-
             data_to_cache = {
                 "search_date": birth_date,
                 "digit_8th": digit_8th,
