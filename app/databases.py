@@ -93,29 +93,46 @@ async def create_databases() -> None:
 async def access_level(tg_id: int) -> str:
     if tg_id == int(getenv("BOT_ADMIN_ID")):
         return "admin"
-    else:
-        return "default"
-    # async with aiosqlite.connect(access_db_file) as db_connection:
-    #     cursor = await db_connection.cursor()
-    #     await cursor.execute(
-    #         """SELECT * FROM black_list
-    #             WHERE tg_id == ?
-    #         """,
-    #         (str(tg_id)),
-    #     )
-    #     db_data = await cursor.fetchone()
-    #     if db_data:
-    #         return "black"
-    #     await cursor.execute(
-    #         """SELECT * FROM white_list
-    #             WHERE tg_id == ?
-    #         """,
-    #         (str(tg_id)),
-    #     )
-    #     db_data = await cursor.fetchone()
-    #     if db_data:
-    #         return "white"
-    # return "normal"
+
+    async with aiosqlite.connect(access_db_file) as db_connection:
+        cursor = await db_connection.cursor()
+        await cursor.execute(
+            """SELECT * FROM black_list
+                WHERE tg_id == ?
+            """,
+            (tg_id,)
+        )
+        db_data = await cursor.fetchone()
+        if db_data:
+            return "black"
+        await cursor.execute(
+            """SELECT * FROM white_list
+                WHERE tg_id == ?
+            """,
+            (tg_id,)
+        )
+        db_data = await cursor.fetchone()
+        if db_data:
+            return "white"
+    return "default"
+
+
+# async def update_access_list(list_name: str, tg_user: dict, add_days: int) -> None:
+#     async with aiosqlite.connect(access_db_file) as db_connection:
+#         cursor = await db_connection.cursor()
+#         await cursor.execute(
+#             """INSERT INTO search_tasks (
+#                 when_created,
+#                 tg_id,
+#                 tg_nick,
+#                 tg_name,
+#                 search_date,
+#                 search_name,
+#                 iins_auto_search,
+#                 when_changed
+#             ) VALUES ()"""
+#         )
+#         await db_connection.commit()
 
 
 async def write_cache(cache_level: int, cache_data: dict) -> None:
