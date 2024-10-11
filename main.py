@@ -22,7 +22,7 @@ async def main():
         asyncio.create_task(db.cleanup_auto_search_db(repeat_minutes=60)),
         asyncio.create_task(db.cleanup_cache_level1(repeat_minutes=10)),
         asyncio.create_task(db.cleanup_cache_level2(repeat_minutes=1)),
-        asyncio.create_task(auto.search(repeat_minutes=15)),
+        asyncio.create_task(auto.search(repeat_minutes=1)),
     ]
     return await asyncio.gather(*async_tasks)
 

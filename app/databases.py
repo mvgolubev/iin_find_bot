@@ -381,7 +381,7 @@ async def get_tasks_by_time() -> list[dict]:
                 ORDER BY when_changed
             """
         )
-        matching_rows = await cursor.fetchmany(50)
+        matching_rows = await cursor.fetchmany(4)
         auto_search_tasks = [
             {
                 "rowid": row[0],
