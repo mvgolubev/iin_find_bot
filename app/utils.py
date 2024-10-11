@@ -52,13 +52,16 @@ async def update_iin_postkz(session: aiohttp.ClientSession, iin: str) -> dict:
         "Referer": constants.POSTKZ_URL,
     }
     json = {"iinBin": iin}
-    async with session.post(
-        url=constants.POSTKZ_API_URL, headers=headers, json=json
-    ) as response:
-        if response.status == 202:
-            response_json = await response.json()
-            iin_data["name"] = response_json["fio"]
-            iin_data["kgd_date"] = response_json["correctDt"].split()[0]
+    try:
+        async with session.post(
+            url=constants.POSTKZ_API_URL, headers=headers, json=json
+        ) as response:
+            if response.status == 202:
+                response_json = await response.json()
+                iin_data["name"] = response_json["fio"]
+                iin_data["kgd_date"] = response_json["correctDt"].split()[0]
+    except aiohttp.ClientConnectionError as err:
+        print(f"*** ERROR: update_iin_postkz - {err}")
     return iin_data
 
 
@@ -94,11 +97,12 @@ async def mass_upd_iins_nca(
     tasks = []
     for iin in iins:
         img_data, viewstate = await get_captcha(session, constants.NCA_URL)
-        captcha_answer = captcha.resolve_captcha(img_data)
-        task = asyncio.create_task(
-            update_iin_nca(session, iin, captcha_answer, viewstate)
-        )
-        tasks.append(task)
+        if img_data:
+            captcha_answer = captcha.resolve_captcha(img_data)
+            task = asyncio.create_task(
+                update_iin_nca(session, iin, captcha_answer, viewstate)
+            )
+            tasks.append(task)
     return await asyncio.gather(*tasks)
 
 
@@ -106,14 +110,19 @@ async def get_captcha(session: aiohttp.ClientSession, url: str) -> tuple[str, st
     headers = {
         "User-Agent": constants.USER_AGENT,
     }
-    async with session.get(url=url, headers=headers) as response:
-        page = await response.text()
-    soup = BeautifulSoup(markup=page, features="html.parser")
-    img_src = soup.find(name="span", id="captchaImage").find("img")["src"]
-    img_data = img_src.removeprefix("data:image/png;base64,")
-    viewstate = soup.find(name="input", id="j_id1:javax.faces.ViewState:0")["value"]
-    return img_data, viewstate
-
+    try:
+        async with session.get(url=url, headers=headers) as response:
+            page = await response.text()
+    except aiohttp.ClientConnectionError as err:
+        print(f"*** ERROR: get_captcha - {err}")
+        return None, None
+    else:
+        soup = BeautifulSoup(markup=page, features="html.parser")
+        img_src = soup.find(name="span", id="captchaImage").find("img")["src"]
+        img_data = img_src.removeprefix("data:image/png;base64,")
+        viewstate = soup.find(name="input", id="j_id1:javax.faces.ViewState:0")["value"]
+        return img_data, viewstate
+    
 
 async def update_iin_nca(
     session: aiohttp.ClientSession, iin: dict, captcha_answer: str, viewstate: str
@@ -140,20 +149,25 @@ async def update_iin_nca(
         "keyidStr": "",
         "javax.faces.ViewState": viewstate,
     }
-    async with session.post(
-        url=constants.NCA_URL, headers=headers, data=data
-    ) as response:
-        xml = await response.text()
-    xml_soup = BeautifulSoup(xml, "xml")
-    html = xml_soup.find("update", id="indexForm").string
-    html_soup = BeautifulSoup(html, "html.parser")
-    alert = html_soup.find("li", role="alert")
-    if alert:
+    try:
+        async with session.post(
+            url=constants.NCA_URL, headers=headers, data=data
+        ) as response:
+            xml = await response.text()
+    except aiohttp.ClientConnectionError as err:
+        print(f"*** ERROR: update_iin_nca - {err}")
         iin["last_name"] = iin["first_name"] = iin["middle_name"] = None
     else:
-        iin["last_name"] = html_soup.find("span", class_="lastname").string
-        iin["first_name"] = html_soup.find("span", class_="firstname").string
-        iin["middle_name"] = html_soup.find("span", class_="middlename").string
+        xml_soup = BeautifulSoup(xml, "xml")
+        html = xml_soup.find("update", id="indexForm").string
+        html_soup = BeautifulSoup(html, "html.parser")
+        alert = html_soup.find("li", role="alert")
+        if alert:
+            iin["last_name"] = iin["first_name"] = iin["middle_name"] = None
+        else:
+            iin["last_name"] = html_soup.find("span", class_="lastname").string
+            iin["first_name"] = html_soup.find("span", class_="firstname").string
+            iin["middle_name"] = html_soup.find("span", class_="middlename").string
     return iin
 
 
