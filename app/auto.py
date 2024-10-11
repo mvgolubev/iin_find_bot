@@ -9,7 +9,7 @@ from app import databases as db, keyboards as kb, utils
 async def search(repeat_minutes: int) -> None:
     while True:
         auto_search_tasks = await db.get_tasks_by_time()
-        if utils.is_time_to_search():
+        if True: # utils.is_time_to_search():
             for task in auto_search_tasks:
                 tg_user = {
                     "id": task["tg_id"],
@@ -22,6 +22,9 @@ async def search(repeat_minutes: int) -> None:
                     "digit_8th": 5,
                     "auto": 1,
                 }
+                print("--- auto search task ---")
+                print(f"{tg_user=}")
+                print(f"{search=}")
                 log_row_num = await db.add_log_record(tg_user, search)
                 iins_found = await utils.find_iin_auto(
                     iins_auto_search=task["iins_auto_search"], name=task["search_name"]
