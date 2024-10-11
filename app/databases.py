@@ -378,9 +378,10 @@ async def get_tasks_by_time() -> list[dict]:
         await cursor.execute(
             """SELECT rowid, tg_id, tg_nick, tg_name, search_date, search_name, iins_auto_search
                 FROM search_tasks WHERE when_changed < datetime('now', '-4 hours')
+                ORDER BY when_changed
             """
         )
-        matching_rows = await cursor.fetchmany(3)
+        matching_rows = await cursor.fetchmany(50)
         auto_search_tasks = [
             {
                 "rowid": row[0],
