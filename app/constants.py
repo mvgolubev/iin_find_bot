@@ -10,7 +10,11 @@ NCA_URL = "https://nca.pki.gov.kz/service/pkiorder/create.xhtml?lang=ru&certtemp
 FAFA_URL = "https://fa-fa.kz/company_info/"
 POSTKZ_URL = "https://post.kz/register"
 DONATE_URL = "https://pay.cloudtips.ru/p/9d2b07f7"
-DATE_REQUEST = "Отправьте текстом дату рождения\n(в формате ГГГГ-ММ-ДД)\nНапример: <i>1997-08-25</i>"
+DATE_REQUEST = (
+    "<blockquote>⚠️ <b>ВНИМАНИЕ:</b> Бот ищет только ИИН иностранцев. "
+    "Он не найдёт ИИН, присвоенный гражданину РК!</blockquote>"
+    "Отправьте текстом дату рождения\n(в формате ГГГГ-ММ-ДД)\nНапример: <i>1997-08-25</i>"
+)
 NOT_FOUND_TEXT = (
     "❌ <b>Подходящий ИИН не найден!</b>\n\n"
     "Убедитесь, что вы верно ввели данные и повторите поиск позже.\n\n"

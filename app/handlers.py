@@ -56,7 +56,7 @@ async def start_handler(message: Message, state: FSMContext) -> None:
                 "ручных поисковых запросов."
             )
             await message.answer(text=text)
-    await message.answer(text=f"🔎 <b>Поиск ИИН</b>\n\n{constants.DATE_REQUEST}")
+    await message.answer(text=f"🔎 <b>Поиск ИИН</b>\n{constants.DATE_REQUEST}")
     await state.set_state(BotStatus.input_birth_date)
 
 
