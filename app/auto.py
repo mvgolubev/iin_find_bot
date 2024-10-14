@@ -9,7 +9,7 @@ from app import databases as db, keyboards as kb, utils
 async def search(repeat_minutes: int) -> None:
     while True:
         auto_search_tasks = await db.get_tasks_by_time()
-        if True: # utils.is_time_to_search():
+        if utils.is_time_to_search():
             for task in auto_search_tasks:
                 tg_user = {
                     "id": task["tg_id"],
